@@ -614,6 +614,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin routes
+  // Middleware to check if user is admin
+  const requireAdmin = (req: Request, res: Response, next: Function) => {
+    if (req.session.userId && req.session.role === 'admin') {
+      next();
+    } else {
+      res.status(403).json({ message: "Access denied. Admin privileges required." });
+    }
+  };
+
+  // Get all users (admin only)
+  app.get("/api/admin/users", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const users = await storage.getAllUsers();
+      const safeUsers = users.map(user => {
+        const { password, ...userWithoutPassword } = user;
+        return userWithoutPassword;
+      });
+      res.json(safeUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Update user (admin only)
+  app.put("/api/admin/users/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id);
+      // We don't use zod validation here as we want to allow partial updates
+      const userData = req.body;
+      
+      // Don't allow password updates through this endpoint
+      if (userData.password) {
+        delete userData.password;
+      }
+      
+      const updatedUser = await storage.updateUser(userId, userData);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Remove password from response
+      const { password, ...userWithoutPassword } = updatedUser;
+      
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  // Change user password (admin only)
+  app.post("/api/admin/users/:id/change-password", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { newPassword } = req.body;
+      
+      if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+        return res.status(400).json({ message: "Invalid password format" });
+      }
+      
+      const { hashPassword } = await import('./auth');
+      const hashedPassword = await hashPassword(newPassword);
+      
+      const updatedUser = await storage.updateUser(userId, { password: hashedPassword });
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      res.status(500).json({ message: "Failed to change password" });
+    }
+  });
+
+  // Get admin analytics dashboard data
+  app.get("/api/admin/analytics", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      // Mock analytics for now - these would be implemented in storage
+      const userCount = await storage.getUserCount();
+      const sessionCount = await storage.getSessionCount();
+      
+      // Sample data for the admin dashboard
+      res.json({
+        userCount: userCount || 0,
+        sessionCount: sessionCount || 0,
+        activeUsers: Math.floor(userCount * 0.7) || 0,
+        conversionRate: 45.8,
+        topSearches: [
+          { term: "Computer Science", count: 42 },
+          { term: "Calculus", count: 38 },
+          { term: "Physics", count: 25 },
+          { term: "Engineering", count: 19 },
+          { term: "Linear Algebra", count: 15 }
+        ],
+        userGrowth: [
+          { date: "Jan 2023", count: 20, change: 0 },
+          { date: "Feb 2023", count: 35, change: 75 },
+          { date: "Mar 2023", count: 48, change: 37 },
+          { date: "Apr 2023", count: 62, change: 29 },
+          { date: "May 2023", count: 85, change: 37 },
+          { date: "Jun 2023", count: 103, change: 21 }
+        ]
+      });
+    } catch (error) {
+      console.error("Error fetching admin analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics data" });
+    }
+  });
+
   // Analytics routes - These routes require admin privileges
   // User activity logging and retrieval
   app.post("/api/analytics/user-activity", async (req: Request, res: Response) => {
