@@ -1259,6 +1259,52 @@ export class MemStorage implements IStorage {
     
     return conversation;
   }
+  
+  // Site settings operations
+  async getSiteSetting(key: string): Promise<SiteSetting | undefined> {
+    return this.siteSettings.get(key);
+  }
+
+  async getAllSiteSettings(category?: string): Promise<SiteSetting[]> {
+    const settings = Array.from(this.siteSettings.values());
+    if (category) {
+      return settings.filter(setting => setting.category === category);
+    }
+    return settings;
+  }
+
+  async createSiteSetting(setting: InsertSiteSetting): Promise<SiteSetting> {
+    const id = this.idCounters.siteSettings++;
+    const now = new Date();
+    
+    const newSetting: SiteSetting = {
+      ...setting,
+      id,
+      updatedAt: now,
+    };
+    
+    this.siteSettings.set(setting.key, newSetting);
+    return newSetting;
+  }
+
+  async updateSiteSetting(key: string, value: string, updatedBy?: number): Promise<SiteSetting | undefined> {
+    const setting = this.siteSettings.get(key);
+    if (!setting) return undefined;
+    
+    const updatedSetting: SiteSetting = {
+      ...setting,
+      value,
+      updatedAt: new Date(),
+      updatedBy: updatedBy || setting.updatedBy,
+    };
+    
+    this.siteSettings.set(key, updatedSetting);
+    return updatedSetting;
+  }
+
+  async deleteSiteSetting(key: string): Promise<boolean> {
+    return this.siteSettings.delete(key);
+  }
 }
 
 // For now, use in-memory storage until we fix the database implementation

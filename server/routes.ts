@@ -19,7 +19,9 @@ import {
   insertMessageSchema,
   insertConversationSchema,
   insertConversationParticipantSchema,
-  Message
+  insertSiteSettingsSchema,
+  Message,
+  SiteSetting
 } from "@shared/schema";
 
 // For simplicity, we use a memory store for sessions
@@ -1153,6 +1155,165 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ conversation, messages });
     } catch (error) {
       res.status(500).json({ message: "Error fetching session conversation" });
+    }
+  });
+  // Site settings routes
+  app.get("/api/site-settings", async (req: Request, res: Response) => {
+    try {
+      const category = req.query.category as string;
+      const settings = await storage.getAllSiteSettings(category);
+      
+      // Cache settings for 1 minute
+      res.set('Cache-Control', 'public, max-age=60');
+      res.json(settings);
+    } catch (error) {
+      console.error('Error fetching site settings:', error);
+      res.status(500).json({ message: "Error fetching site settings" });
+    }
+  });
+
+  app.get("/api/site-settings/:key", async (req: Request, res: Response) => {
+    try {
+      const { key } = req.params;
+      const setting = await storage.getSiteSetting(key);
+      
+      if (!setting) {
+        return res.status(404).json({ message: `Setting with key '${key}' not found` });
+      }
+      
+      // Cache individual settings for 1 minute
+      res.set('Cache-Control', 'public, max-age=60');
+      res.json(setting);
+    } catch (error) {
+      console.error(`Error fetching site setting with key ${req.params.key}:`, error);
+      res.status(500).json({ message: "Error fetching site setting" });
+    }
+  });
+
+  app.post("/api/site-settings", async (req: Request, res: Response) => {
+    // Only admins can create/update site settings
+    if (!req.session.userId || req.session.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const settingData = insertSiteSettingsSchema.parse(req.body);
+      
+      // Check if setting already exists
+      const existingSetting = await storage.getSiteSetting(settingData.key);
+      
+      let setting: SiteSetting;
+      if (existingSetting) {
+        // Update existing setting
+        setting = await storage.updateSiteSetting(
+          settingData.key, 
+          settingData.value, 
+          req.session.userId
+        ) as SiteSetting;
+      } else {
+        // Create new setting
+        setting = await storage.createSiteSetting({
+          ...settingData,
+          updatedBy: req.session.userId
+        });
+      }
+      
+      // Log the action
+      await storage.logActivity({
+        userId: req.session.userId,
+        action: existingSetting ? 'SITE_SETTING_UPDATED' : 'SITE_SETTING_CREATED',
+        targetId: setting.id,
+        targetType: 'site_setting',
+        metadata: { key: setting.key, category: setting.category }
+      });
+      
+      res.status(existingSetting ? 200 : 201).json(setting);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid setting data", errors: error.errors });
+      }
+      console.error('Error creating/updating site setting:', error);
+      res.status(500).json({ message: "Error creating/updating site setting" });
+    }
+  });
+
+  app.put("/api/site-settings/:key", async (req: Request, res: Response) => {
+    // Only admins can update site settings
+    if (!req.session.userId || req.session.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { key } = req.params;
+      const { value } = req.body;
+      
+      if (!value || typeof value !== 'string') {
+        return res.status(400).json({ message: "Value is required and must be a string" });
+      }
+      
+      const setting = await storage.getSiteSetting(key);
+      if (!setting) {
+        return res.status(404).json({ message: `Setting with key '${key}' not found` });
+      }
+      
+      const updatedSetting = await storage.updateSiteSetting(
+        key, 
+        value, 
+        req.session.userId
+      );
+      
+      if (!updatedSetting) {
+        return res.status(500).json({ message: "Failed to update setting" });
+      }
+      
+      // Log the action
+      await storage.logActivity({
+        userId: req.session.userId,
+        action: 'SITE_SETTING_UPDATED',
+        targetId: setting.id,
+        targetType: 'site_setting',
+        metadata: { key: setting.key, category: setting.category }
+      });
+      
+      res.json(updatedSetting);
+    } catch (error) {
+      console.error(`Error updating site setting with key ${req.params.key}:`, error);
+      res.status(500).json({ message: "Error updating site setting" });
+    }
+  });
+
+  app.delete("/api/site-settings/:key", async (req: Request, res: Response) => {
+    // Only admins can delete site settings
+    if (!req.session.userId || req.session.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    try {
+      const { key } = req.params;
+      const setting = await storage.getSiteSetting(key);
+      
+      if (!setting) {
+        return res.status(404).json({ message: `Setting with key '${key}' not found` });
+      }
+      
+      const success = await storage.deleteSiteSetting(key);
+      
+      if (!success) {
+        return res.status(500).json({ message: "Failed to delete setting" });
+      }
+      
+      // Log the action
+      await storage.logActivity({
+        userId: req.session.userId,
+        action: 'SITE_SETTING_DELETED',
+        targetType: 'site_setting',
+        metadata: { key, category: setting.category }
+      });
+      
+      res.status(204).end();
+    } catch (error) {
+      console.error(`Error deleting site setting with key ${req.params.key}:`, error);
+      res.status(500).json({ message: "Error deleting site setting" });
     }
   });
   
