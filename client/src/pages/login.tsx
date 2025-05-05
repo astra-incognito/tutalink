@@ -24,7 +24,23 @@ const Login = () => {
   const [, navigate] = useLocation();
   const { user, loginMutation, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-
+  
+  // Initialize form - IMPORTANT: All hooks must be called on every render
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
+  
+  // Handle redirect after all hooks are initialized
+  React.useEffect(() => {
+    if (user && !isLoading) {
+      navigate("/dashboard");
+    }
+  }, [user, isLoading, navigate]);
+  
   // Show loader while checking authentication
   if (isLoading) {
     return (
@@ -33,20 +49,11 @@ const Login = () => {
       </div>
     );
   }
-
-  // Redirect if already authenticated
+  
+  // Don't render the form if user is authenticated (but still call all hooks above)
   if (user) {
-    navigate("/dashboard");
     return null;
   }
-
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      username: "",
-      password: "",
-    },
-  });
 
   const onSubmit = async (data: LoginFormValues) => {
     loginMutation.mutate(data);
