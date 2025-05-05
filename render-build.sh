@@ -5,7 +5,7 @@ npm install @vitejs/plugin-react
 
 # Ensure the database schema is up to date
 echo "Running database migrations..."
-npx drizzle-kit push:pg
+npx drizzle-kit push
 
 # Use Render-specific Vite config
 cp vite.config.render.ts vite.config.ts
