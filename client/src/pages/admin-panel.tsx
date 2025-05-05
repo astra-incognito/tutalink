@@ -12,6 +12,7 @@ import { Redirect } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2, Search, UserPlus, X, Edit, ChevronDown, ChevronUp, Save } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import FooterSettings from "@/components/admin/footer-settings";
 
 export default function AdminPanel() {
   const { user, isLoading } = useAuth();
@@ -459,39 +460,47 @@ export default function AdminPanel() {
 
         {/* SETTINGS TAB */}
         <TabsContent value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Platform Settings</CardTitle>
-              <CardDescription>
-                Configure global platform settings and parameters
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-6">
-                <div className="grid gap-3">
-                  <Label htmlFor="site-name">Platform Name</Label>
-                  <Input id="site-name" defaultValue="TutaLink" />
+          <div className="space-y-6">
+            {/* General Platform Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Platform Settings</CardTitle>
+                <CardDescription>
+                  Configure global platform settings and parameters
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-6">
+                  <div className="grid gap-3">
+                    <Label htmlFor="site-name">Platform Name</Label>
+                    <Input id="site-name" defaultValue="TutaLink" />
+                  </div>
+                  <div className="grid gap-3">
+                    <Label htmlFor="support-email">Support Email</Label>
+                    <Input id="support-email" defaultValue="support@tutalink.com" />
+                  </div>
+                  <div className="grid gap-3">
+                    <Label htmlFor="max-session-duration">Maximum Session Duration (hours)</Label>
+                    <Input id="max-session-duration" type="number" defaultValue="4" />
+                  </div>
+                  <div className="grid gap-3">
+                    <Label htmlFor="minimum-hourly-rate">Minimum Hourly Rate ($)</Label>
+                    <Input id="minimum-hourly-rate" type="number" defaultValue="15.00" />
+                  </div>
+                  <div className="grid gap-3">
+                    <Label htmlFor="platform-fee">Platform Fee (%)</Label>
+                    <Input id="platform-fee" type="number" defaultValue="10" />
+                  </div>
+                  <Button>Save Settings</Button>
                 </div>
-                <div className="grid gap-3">
-                  <Label htmlFor="support-email">Support Email</Label>
-                  <Input id="support-email" defaultValue="support@tutalink.com" />
-                </div>
-                <div className="grid gap-3">
-                  <Label htmlFor="max-session-duration">Maximum Session Duration (hours)</Label>
-                  <Input id="max-session-duration" type="number" defaultValue="4" />
-                </div>
-                <div className="grid gap-3">
-                  <Label htmlFor="minimum-hourly-rate">Minimum Hourly Rate ($)</Label>
-                  <Input id="minimum-hourly-rate" type="number" defaultValue="15.00" />
-                </div>
-                <div className="grid gap-3">
-                  <Label htmlFor="platform-fee">Platform Fee (%)</Label>
-                  <Input id="platform-fee" type="number" defaultValue="10" />
-                </div>
-                <Button>Save Settings</Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+            
+            {/* Footer Settings */}
+            <div className="pt-2">
+              <FooterSettings />
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 
