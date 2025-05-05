@@ -250,6 +250,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error fetching users" });
     }
   });
+  
+  // Update user profile (users can update their own profile)
+  app.patch("/api/users/:id", async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const userId = parseInt(req.params.id);
+      
+      // Users can only update their own profile
+      if (userId !== req.session.userId) {
+        return res.status(403).json({ message: "You can only update your own profile" });
+      }
+      
+      // We don't use zod validation here as we want to allow partial updates
+      const userData = req.body;
+      
+      // Don't allow password or role updates through this endpoint
+      if (userData.password) {
+        delete userData.password;
+      }
+      
+      if (userData.role) {
+        delete userData.role;
+      }
+      
+      // For tutors, ensure GPA requirements and visibility
+      const currentUser = await storage.getUser(userId);
+      if (currentUser?.role === "tutor") {
+        // Tutors must have a minimum GPA of 3.5
+        if (userData.gpa !== undefined && userData.gpa !== null && userData.gpa < 3.5) {
+          return res.status(400).json({ message: "Tutors must maintain a GPA of at least 3.5" });
+        }
+        
+        // Tutors must always show their GPA
+        userData.showGPA = true;
+      }
+      
+      const updatedUser = await storage.updateUser(userId, userData);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Remove password from response
+      const { password, ...userWithoutPassword } = updatedUser;
+      
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
 
   // Course routes
   app.get("/api/courses", async (_req: Request, res: Response) => {
