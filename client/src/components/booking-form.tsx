@@ -83,6 +83,14 @@ const BookingForm = ({ tutor, onSuccess, onCancel }: BookingFormProps) => {
     },
   });
 
+  // Ensure scheduleDate is always a Date object
+  useEffect(() => {
+    const value = form.getValues("scheduleDate");
+    if (typeof value === "string") {
+      form.setValue("scheduleDate", new Date(value));
+    }
+  }, []);
+
   // Handle course selection and update form
   const handleCourseChange = (courseId: string) => {
     // Check if courseId is our "no-courses" special value
@@ -270,7 +278,9 @@ const BookingForm = ({ tutor, onSuccess, onCancel }: BookingFormProps) => {
                     <Calendar
                       mode="single"
                       selected={field.value}
-                      onSelect={field.onChange}
+                      onSelect={(date) => {
+                        if (date) field.onChange(date);
+                      }}
                       disabled={(date) => date < new Date()}
                       initialFocus
                     />

@@ -6,6 +6,10 @@ import { Star, Clock, DollarSign, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserWithDetails } from "@shared/schema";
 import { useAnalytics } from "@/hooks/use-analytics";
+import BookingForm from "@/components/booking-form";
+import useAuth from "@/hooks/use-auth";
+import { useState } from "react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface TutorCardProps {
   tutor: UserWithDetails;
@@ -13,6 +17,8 @@ interface TutorCardProps {
 
 const TutorCard = ({ tutor }: TutorCardProps) => {
   const { trackActivity, trackSearchQuery } = useAnalytics();
+  const { user, isAuthenticated } = useAuth();
+  const [showBooking, setShowBooking] = useState(false);
   
   // Calculate first letter of first and last name for avatar fallback
   const getInitials = (name: string) => {
@@ -120,10 +126,23 @@ const TutorCard = ({ tutor }: TutorCardProps) => {
             ></span>
             {isAvailableNow ? "Available now" : "Not available"}
           </Badge>
-          <Link href={`/tutors/${tutor.id}`} onClick={handleProfileClick}>
-            <Button size="sm">View Profile</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href={`/tutors/${tutor.id}`} onClick={handleProfileClick}>
+              <Button size="sm">View Profile</Button>
+            </Link>
+            {isAuthenticated && user?.id !== tutor.id && (
+              <Button size="sm" variant="secondary" onClick={() => setShowBooking(true)}>
+                Book Now
+              </Button>
+            )}
+          </div>
         </div>
+        <Dialog open={showBooking} onOpenChange={setShowBooking}>
+          <DialogContent>
+            <h2 className="text-lg font-semibold mb-4">Book a Session with {tutor.fullName}</h2>
+            <BookingForm tutor={tutor} onSuccess={() => setShowBooking(false)} onCancel={() => setShowBooking(false)} />
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
