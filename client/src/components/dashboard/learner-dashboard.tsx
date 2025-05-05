@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import EditProfileDialog from "@/components/dialogs/edit-profile-dialog";
 import { useLocation } from "wouter";
 import {
   Tabs,
@@ -48,6 +49,7 @@ interface LearnerDashboardProps {
 
 const LearnerDashboard = ({ user, refetchUser }: LearnerDashboardProps) => {
   const [activeTab, setActiveTab] = useState("overview");
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [, navigate] = useLocation();
   
   // Fetch sessions
@@ -84,6 +86,13 @@ const LearnerDashboard = ({ user, refetchUser }: LearnerDashboardProps) => {
 
   return (
     <>
+      {/* EditProfile Dialog */}
+      <EditProfileDialog
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+        user={user}
+      />
+      
       {/* Dashboard Header */}
       <div className="md:flex md:items-center md:justify-between md:space-x-5 mb-6 bg-gradient-to-r from-primary-50 to-blue-50 p-6 rounded-lg shadow-sm">
         <div className="flex items-start space-x-5">
@@ -117,7 +126,7 @@ const LearnerDashboard = ({ user, refetchUser }: LearnerDashboardProps) => {
           </div>
         </div>
         <div className="mt-6 flex flex-col-reverse space-y-4 space-y-reverse sm:flex-row-reverse sm:justify-end sm:space-y-0 sm:space-x-3 sm:space-x-reverse md:mt-0 md:flex-row md:space-x-3">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => setIsEditProfileOpen(true)}>
             <Edit className="mr-2 h-4 w-4" />
             Edit Profile
           </Button>

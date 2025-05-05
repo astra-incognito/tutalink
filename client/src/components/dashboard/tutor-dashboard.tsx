@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import AddCourseDialog from "@/components/dialogs/add-course-dialog";
+import EditProfileDialog from "@/components/dialogs/edit-profile-dialog";
 import {
   Tabs,
   TabsContent,
@@ -48,6 +50,8 @@ interface TutorDashboardProps {
 }
 
 const TutorDashboard = ({ user, refetchUser }: TutorDashboardProps) => {
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isAddCourseOpen, setIsAddCourseOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   
   // Fetch sessions
@@ -134,11 +138,11 @@ const TutorDashboard = ({ user, refetchUser }: TutorDashboardProps) => {
           </div>
         </div>
         <div className="mt-6 flex flex-col-reverse space-y-4 space-y-reverse sm:flex-row-reverse sm:justify-end sm:space-y-0 sm:space-x-3 sm:space-x-reverse md:mt-0 md:flex-row md:space-x-3">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => setIsEditProfileOpen(true)}>
             <Edit className="mr-2 h-4 w-4" />
             Edit Profile
           </Button>
-          <Button>
+          <Button onClick={() => setIsAddCourseOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Course
           </Button>
@@ -226,7 +230,7 @@ const TutorDashboard = ({ user, refetchUser }: TutorDashboardProps) => {
                   </div>
                 ))}
 
-                <Button className="w-full" variant="outline">
+                <Button className="w-full" variant="outline" onClick={() => setIsAddCourseOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add New Course
                 </Button>
@@ -578,6 +582,19 @@ const TutorDashboard = ({ user, refetchUser }: TutorDashboardProps) => {
           </Tabs>
         </div>
       </div>
+
+      {/* Dialogs */}
+      <EditProfileDialog 
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+        user={user}
+      />
+      
+      <AddCourseDialog
+        isOpen={isAddCourseOpen}
+        onClose={() => setIsAddCourseOpen(false)}
+        tutorId={user.id}
+      />
     </>
   );
 };
