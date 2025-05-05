@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Clock, DollarSign, Home, Calendar } from "lucide-react";
+import { Clock, DollarSign, Home, Calendar, Star, ThumbsUp } from "lucide-react";
 import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -14,9 +15,10 @@ import useAuth from "@/hooks/use-auth";
 interface SessionCardProps {
   session: SessionWithDetails;
   onStatusChange?: () => void;
+  showReviewButton?: boolean;
 }
 
-const SessionCard = ({ session, onStatusChange }: SessionCardProps) => {
+const SessionCard = ({ session, onStatusChange, showReviewButton = false }: SessionCardProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
