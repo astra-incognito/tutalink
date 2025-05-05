@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,6 +33,8 @@ import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAnalytics } from "@/hooks/use-analytics";
+import useAuth from "@/hooks/use-auth";
 import { UserWithDetails } from "@shared/schema";
 
 // Schema for booking form validation
@@ -55,7 +57,19 @@ interface BookingFormProps {
 
 const BookingForm = ({ tutor, onSuccess, onCancel }: BookingFormProps) => {
   const { toast } = useToast();
+  const { trackActivity } = useAnalytics();
+  const { user } = useAuth();
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
+  
+  // Track booking form opened
+  useEffect(() => {
+    trackActivity('booking_form_opened', tutor.id, 'tutor', {
+      tutorName: tutor.fullName,
+      department: tutor.department,
+      hasPaidCourses: tutor.courses?.some(c => c.isPaid) || false,
+      courseCount: tutor.courses?.length || 0
+    });
+  }, [trackActivity, tutor]);
   
   // Set default values for the form
   const form = useForm<BookingFormValues>({
@@ -75,6 +89,18 @@ const BookingForm = ({ tutor, onSuccess, onCancel }: BookingFormProps) => {
     const course = tutor.courses?.find(c => c.courseId === numericId);
     setSelectedCourse(course);
     form.setValue("courseId", numericId);
+    
+    // Track course selection
+    if (course) {
+      trackActivity('booking_course_selected', tutor.id, 'tutor', {
+        tutorName: tutor.fullName,
+        courseName: course.course.title,
+        courseCode: course.course.code,
+        department: course.course.department,
+        isPaid: course.isPaid || false,
+        hourlyRate: course.hourlyRate || 0
+      });
+    }
   };
 
   // Create session mutation
@@ -90,7 +116,19 @@ const BookingForm = ({ tutor, onSuccess, onCancel }: BookingFormProps) => {
       const res = await apiRequest("POST", "/api/sessions", sessionData);
       return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Track successful booking
+      trackActivity('booking_completed', tutor.id, 'tutor', {
+        tutorName: tutor.fullName,
+        courseName: selectedCourse?.course?.title || '',
+        courseCode: selectedCourse?.course?.code || '',
+        duration: form.getValues('duration'),
+        location: form.getValues('location'),
+        isPaid: selectedCourse?.isPaid || false,
+        price: selectedCourse?.isPaid ? selectedCourse.hourlyRate * (form.getValues('duration') / 60) : 0,
+        sessionId: data.id
+      });
+      
       toast({
         title: "Session Booked",
         description: "Your session request has been sent to the tutor",
@@ -98,6 +136,14 @@ const BookingForm = ({ tutor, onSuccess, onCancel }: BookingFormProps) => {
       onSuccess();
     },
     onError: (error: any) => {
+      // Track booking error
+      trackActivity('booking_error', tutor.id, 'tutor', {
+        tutorName: tutor.fullName,
+        courseName: selectedCourse?.course?.title || '',
+        error: error.message || "Unknown error",
+        isPaid: selectedCourse?.isPaid || false
+      });
+      
       toast({
         title: "Booking Failed",
         description: error.message || "There was an error booking your session",
@@ -107,7 +153,31 @@ const BookingForm = ({ tutor, onSuccess, onCancel }: BookingFormProps) => {
   });
 
   const onSubmit = (data: BookingFormValues) => {
+    // Track booking submission attempt
+    trackActivity('booking_submitted', tutor.id, 'tutor', {
+      tutorName: tutor.fullName,
+      courseId: data.courseId,
+      courseName: selectedCourse?.course?.title || '',
+      duration: data.duration,
+      location: data.location,
+      hasNotes: data.notes && data.notes.length > 0,
+      isPaid: selectedCourse?.isPaid || false
+    });
+    
     mutate(data);
+  };
+  
+  // Handle cancellation
+  const handleCancel = () => {
+    // Track cancellation
+    trackActivity('booking_cancelled', tutor.id, 'tutor', {
+      tutorName: tutor.fullName,
+      courseSelected: !!selectedCourse,
+      isPaid: selectedCourse?.isPaid || false,
+      formProgress: form.formState.dirtyFields ? Object.keys(form.formState.dirtyFields).length : 0
+    });
+    
+    onCancel();
   };
 
   return (
@@ -268,7 +338,7 @@ const BookingForm = ({ tutor, onSuccess, onCancel }: BookingFormProps) => {
         )}
 
         <div className="flex justify-end space-x-3">
-          <Button type="button" variant="outline" onClick={onCancel}>
+          <Button type="button" variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
           <Button type="submit" disabled={isPending}>
