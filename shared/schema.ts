@@ -12,6 +12,7 @@ export const users = pgTable("users", {
   yearOfStudy: integer("year_of_study").notNull(),
   role: text("role").notNull(),
   gpa: doublePrecision("gpa"),
+  showGPA: boolean("show_gpa").default(false), // Learners can choose to show GPA or not
   bio: text("bio"),
   averageRating: doublePrecision("average_rating").default(0),
   isVerified: boolean("is_verified").default(false),
@@ -146,6 +147,7 @@ export const registerSchema = z.object({
   yearOfStudy: z.number().int().min(1).max(10),
   role: z.enum(["tutor", "learner"]),
   gpa: z.number().optional(),
+  showGPA: z.boolean().optional(),
   bio: z.string().optional(),
 });
 
