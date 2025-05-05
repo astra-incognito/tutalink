@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -15,6 +15,17 @@ export const users = pgTable("users", {
   bio: text("bio"),
   averageRating: doublePrecision("average_rating").default(0),
   isVerified: boolean("is_verified").default(false),
+  verificationToken: text("verification_token"),
+  profileImage: text("profile_image"),
+  googleId: text("google_id").unique(),
+  facebookId: text("facebook_id").unique(),
+  refreshToken: text("refresh_token"),
+  preferences: json("preferences").$type<{
+    notifications: boolean;
+    darkMode: boolean;
+    emailUpdates: boolean;
+  }>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const courses = pgTable("courses", {
@@ -65,9 +76,44 @@ export const reviews = pgTable("reviews", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull(), // 'system', 'session', 'message', etc.
+  isRead: boolean("is_read").default(false),
+  link: text("link"), // Optional link to navigate when clicked
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => sessions.id),
+  learnerId: integer("learner_id").notNull().references(() => users.id),
+  tutorId: integer("tutor_id").notNull().references(() => users.id),
+  amount: doublePrecision("amount").notNull(),
+  status: text("status").notNull(), // 'pending', 'completed', 'failed', 'refunded'
+  paymentMethod: text("payment_method").notNull(), // 'card', 'paypal', etc.
+  stripePaymentId: text("stripe_payment_id"),
+  metadata: json("metadata"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users)
-  .omit({ id: true, averageRating: true, isVerified: true });
+  .omit({ 
+    id: true, 
+    averageRating: true, 
+    isVerified: true, 
+    verificationToken: true, 
+    googleId: true, 
+    facebookId: true, 
+    refreshToken: true, 
+    createdAt: true,
+    preferences: true
+  });
 
 export const insertCourseSchema = createInsertSchema(courses)
   .omit({ id: true });
@@ -83,6 +129,12 @@ export const insertSessionSchema = createInsertSchema(sessions)
 
 export const insertReviewSchema = createInsertSchema(reviews)
   .omit({ id: true, createdAt: true });
+
+export const insertNotificationSchema = createInsertSchema(notifications)
+  .omit({ id: true, isRead: true, createdAt: true });
+
+export const insertPaymentSchema = createInsertSchema(payments)
+  .omit({ id: true, createdAt: true, updatedAt: true });
 
 // Custom Zod schemas for frontend validation
 export const registerSchema = z.object({
