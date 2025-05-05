@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import TutorDashboard from "@/components/dashboard/tutor-dashboard";
 import LearnerDashboard from "@/components/dashboard/learner-dashboard";
 import useAuth from "@/hooks/use-auth";
+import { UserWithDetails } from "../../../shared/schema";
 
 const Dashboard = () => {
   const [, navigate] = useLocation();
@@ -27,9 +28,9 @@ const Dashboard = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {user?.role === "tutor" ? (
-        <TutorDashboard user={user} refetchUser={refetchUser} />
+        <TutorDashboard user={user as UserWithDetails} refetchUser={refetchUser} />
       ) : (
-        <LearnerDashboard user={user} refetchUser={refetchUser} />
+        <LearnerDashboard user={user!} refetchUser={refetchUser} />
       )}
     </div>
   );

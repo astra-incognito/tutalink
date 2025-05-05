@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 import SessionCard from "@/components/session-card";
 import ReviewCard from "@/components/review-card";
-import { UserWithDetails, SessionWithDetails, ReviewWithDetails } from "@shared/schema";
+import { UserWithDetails, SessionWithDetails, ReviewWithDetails, TutorCourse, Course } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 

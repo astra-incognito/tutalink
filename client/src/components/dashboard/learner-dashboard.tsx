@@ -20,7 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Loader2, 
-  User, 
+  User as UserIcon, 
   Book, 
   Star, 
   Calendar, 
@@ -37,12 +37,12 @@ import {
   FileText
 } from "lucide-react";
 import SessionCard from "@/components/session-card";
-import { User as UserType, SessionWithDetails } from "@shared/schema";
+import { User, SessionWithDetails } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface LearnerDashboardProps {
-  user: UserType;
+  user: User;
   refetchUser: () => void;
 }
 
@@ -110,7 +110,7 @@ const LearnerDashboard = ({ user, refetchUser }: LearnerDashboardProps) => {
               </div>
               <span className="mx-2 text-gray-300">•</span>
               <div className="flex items-center">
-                <User className="h-4 w-4 text-primary mr-1" />
+                <UserIcon className="h-4 w-4 text-primary mr-1" />
                 <span>{uniqueTutors} tutors met</span>
               </div>
             </div>
@@ -153,7 +153,7 @@ const LearnerDashboard = ({ user, refetchUser }: LearnerDashboardProps) => {
                   <span className="text-xs text-gray-500">Invested</span>
                 </div>
                 <div className="bg-primary-50 rounded-lg p-4 flex flex-col items-center justify-center">
-                  <User className="h-6 w-6 text-primary mb-2" />
+                  <UserIcon className="h-6 w-6 text-primary mb-2" />
                   <span className="text-2xl font-bold">{uniqueTutors}</span>
                   <span className="text-xs text-gray-500">Tutors</span>
                 </div>

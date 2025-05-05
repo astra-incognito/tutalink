@@ -29,12 +29,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error,
     isLoading,
     refetch: refetchUser,
-  } = useQuery({
+  } = useQuery<User | null>({
     queryKey: ["/api/auth/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
-  const loginMutation = useMutation({
+  const loginMutation = useMutation<User, Error, LoginData>({
     mutationFn: async (credentials: LoginData) => {
       const res = await apiRequest("POST", "/api/auth/login", credentials);
       return await res.json();
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  const registerMutation = useMutation({
+  const registerMutation = useMutation<User, Error, InsertUser>({
     mutationFn: async (userData: InsertUser) => {
       const res = await apiRequest("POST", "/api/auth/register", userData);
       return await res.json();
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  const logoutMutation = useMutation({
+  const logoutMutation = useMutation<void, Error, void>({
     mutationFn: async () => {
       await apiRequest("POST", "/api/auth/logout");
     },
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user: user ?? null,
+        user: user as User | null,
         isLoading,
         error,
         isAuthenticated,
