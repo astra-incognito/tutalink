@@ -1,6 +1,8 @@
 import { Switch, Route } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "./hooks";
+import { ProtectedRoute } from "./lib/protected-route";
 
 // Pages
 import Home from "@/pages/home";
@@ -24,7 +26,7 @@ function Router() {
           <Route path="/" component={Home} />
           <Route path="/login" component={Login} />
           <Route path="/register" component={Register} />
-          <Route path="/dashboard" component={Dashboard} />
+          <ProtectedRoute path="/dashboard" component={Dashboard} />
           <Route path="/find-tutors" component={FindTutors} />
           <Route path="/tutors/:id" component={TutorProfile} />
           <Route component={NotFound} />
@@ -38,8 +40,10 @@ function Router() {
 function App() {
   return (
     <TooltipProvider>
-      <Toaster />
-      <Router />
+      <AuthProvider>
+        <Toaster />
+        <Router />
+      </AuthProvider>
     </TooltipProvider>
   );
 }

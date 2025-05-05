@@ -7,7 +7,8 @@ import { Loader2, Search, Calendar, CheckCircle } from "lucide-react";
 import useAuth from "@/hooks/use-auth";
 
 const Home = () => {
-  const { isAuthenticated, user } = useAuth();
+  const { user } = useAuth();
+  const isAuthenticated = !!user;
 
   // Fetch top tutors
   const { data: topTutors, isLoading } = useQuery<UserWithDetails[]>({

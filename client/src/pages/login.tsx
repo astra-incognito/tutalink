@@ -1,9 +1,9 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { loginSchema } from "@shared/schema";
+import { loginSchema } from "../../../shared/schema";
 import {
   Form,
   FormControl,
@@ -15,18 +15,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
-import useAuth from "@/hooks/use-auth";
+import { Loader2, EyeIcon, EyeOffIcon } from "lucide-react";
+import { useAuth } from "../hooks";
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const [, navigate] = useLocation();
-  const { login, isAuthenticated, isPendingLogin } = useAuth();
+  const { user, loginMutation } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
 
   // Redirect if already authenticated
-  if (isAuthenticated) {
+  if (user) {
     navigate("/dashboard");
     return null;
   }
@@ -40,7 +40,7 @@ const Login = () => {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
-    login(data);
+    loginMutation.mutate(data);
   };
 
   return (
@@ -62,7 +62,7 @@ const Login = () => {
                       <Input
                         placeholder="Enter your username"
                         {...field}
-                        disabled={isPendingLogin}
+                        disabled={loginMutation.isPending}
                       />
                     </FormControl>
                     <FormMessage />
@@ -82,16 +82,15 @@ const Login = () => {
                           type={showPassword ? "text" : "password"}
                           placeholder="Enter your password"
                           {...field}
-                          disabled={isPendingLogin}
+                          disabled={loginMutation.isPending}
                         />
-                        <Button
+                        <button
                           type="button"
-                          variant="ghost"
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm"
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-gray-500 hover:text-gray-700"
                           onClick={() => setShowPassword(!showPassword)}
                         >
-                          {showPassword ? "Hide" : "Show"}
-                        </Button>
+                          {showPassword ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                        </button>
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -102,9 +101,9 @@ const Login = () => {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isPendingLogin}
+                disabled={loginMutation.isPending}
               >
-                {isPendingLogin && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loginMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign In
               </Button>
             </form>
