@@ -19,7 +19,7 @@ echo "Building server..."
 npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/server
 
 # Create a startup script that ensures we use the correct path
-echo "Creating startup script..."
+cd "$(dirname "$0")"
 echo "#!/bin/sh
 NODE_ENV=production node \$PWD/dist/server/index.js" > start.sh
 chmod +x start.sh
