@@ -204,6 +204,28 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Add security headers in production
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    // Protect against XSS attacks
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    
+    // Prevent clickjacking
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    
+    // Prevent MIME type sniffing
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    
+    // Strict Transport Security
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    
+    // Referrer policy
+    res.setHeader('Referrer-Policy', 'same-origin');
+    
+    next();
+  });
+}
+
 // Set up authentication
 setupAuth(app);
 
@@ -251,12 +273,27 @@ app.use((req, res, next) => {
   
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  // Improved error handler with better logging and sanitized error responses
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
+    
+    // Log full error details in development, sanitized version in production
+    if (process.env.NODE_ENV === 'development') {
+      console.error(`[ERROR] ${req.method} ${req.path}:`, err);
+    } else {
+      // In production, log without potentially sensitive data
+      console.error(`[ERROR] ${req.method} ${req.path}: ${message} (${status})`);
+    }
 
-    res.status(status).json({ message });
-    throw err;
+    // Send appropriate error response to client
+    const errorResponse = {
+      message,
+      // Add stack trace only in development
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+    };
+
+    res.status(status).json(errorResponse);
   });
 
   // importantly only setup vite in development and after

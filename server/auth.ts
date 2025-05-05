@@ -180,9 +180,8 @@ export function setupAuth(app: Express): void {
             return done(null, updatedUser);
           }
           
-          // Create new user
+          // Create new user with required fields
           const randomPassword = randomBytes(16).toString("hex");
-          // Use type assertion to handle additional OAuth fields
           const newUser = await storage.createUser({
             username: `google_${profile.id}`,
             password: await hashPassword(randomPassword),
@@ -191,8 +190,17 @@ export function setupAuth(app: Express): void {
             department: "Not Specified",
             yearOfStudy: 1,
             role: "learner",
-            isVerified: true,
-          } as any); // Use type assertion to avoid TypeScript errors
+          });
+          
+          // After creating the user, update with googleId and set as verified
+          if (newUser) {
+            await db.update(users)
+              .set({ 
+                googleId: profile.id,
+                isVerified: true 
+              })
+              .where(eq(users.id, newUser.id));
+          }
           
           return done(null, newUser);
         } catch (error) {
@@ -240,9 +248,8 @@ export function setupAuth(app: Express): void {
             return done(null, updatedUser);
           }
           
-          // Create new user
+          // Create new user with required fields
           const randomPassword = randomBytes(16).toString("hex");
-          // Use type assertion to handle additional OAuth fields
           const newUser = await storage.createUser({
             username: `fb_${profile.id}`,
             password: await hashPassword(randomPassword),
@@ -251,7 +258,7 @@ export function setupAuth(app: Express): void {
             department: "Not Specified",
             yearOfStudy: 1,
             role: "learner",
-          } as any); // Use type assertion to avoid TypeScript errors
+          });
           
           // After creating the user, update with facebookId and set as verified
           if (newUser) {

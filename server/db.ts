@@ -11,12 +11,15 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Optimize the connection pool for better performance
+// Production-ready database connection pool with optimal settings
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-  connectionTimeoutMillis: 2000, // How long to wait for a connection to become available
+  connectionTimeoutMillis: 5000, // How long to wait for a connection to become available
+  statement_timeout: 10000, // Timeout for statements in ms (10s)
+  query_timeout: 15000, // Timeout for queries in ms (15s)
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined, // Enable SSL in production
 });
 
 // Enable query logging in development environment
@@ -32,4 +35,16 @@ export const db = drizzle({
       if (params) console.log('Params:', params);
     },
   } : undefined,
+});
+
+// Setup graceful shutdown handling for the database pool
+process.on('SIGINT', () => {
+  console.log('Gracefully shutting down...');
+  pool.end().then(() => {
+    console.log('Database pool closed successfully');
+    process.exit(0);
+  }).catch(err => {
+    console.error('Error closing database pool:', err);
+    process.exit(1);
+  });
 });
