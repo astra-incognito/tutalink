@@ -75,7 +75,7 @@ const AddCourseDialog = ({ isOpen, onClose, tutorId }: AddCourseDialogProps) => 
   // Add course mutation
   const addCourseMutation = useMutation({
     mutationFn: async (newCourse: NewCourse) => {
-      const res = await apiRequest("POST", `/api/tutors/${tutorId}/courses`, newCourse);
+      const res = await apiRequest("POST", `/api/tutor/courses`, newCourse);
       return res.json();
     },
     onSuccess: () => {
