@@ -31,6 +31,8 @@ import {
   InsertConversationParticipant,
   Message,
   InsertMessage,
+  SiteSetting,
+  InsertSiteSetting,
   ConversationWithParticipants,
   MessageWithSender,
   users,
@@ -46,7 +48,8 @@ import {
   errorLogs,
   conversations,
   conversationParticipants,
-  messages
+  messages,
+  siteSettings
 } from "@shared/schema";
 
 // We'll import DatabaseStorage at the end of the file to avoid circular dependencies
@@ -174,6 +177,13 @@ export interface IStorage {
   // Session-related conversations
   getSessionConversation(sessionId: number): Promise<ConversationWithParticipants | undefined>;
   createSessionConversation(sessionId: number, participantIds: number[]): Promise<Conversation>;
+  
+  // Site settings operations
+  getSiteSetting(key: string): Promise<SiteSetting | undefined>;
+  getAllSiteSettings(category?: string): Promise<SiteSetting[]>;
+  createSiteSetting(setting: InsertSiteSetting): Promise<SiteSetting>;
+  updateSiteSetting(key: string, value: string, updatedBy?: number): Promise<SiteSetting | undefined>;
+  deleteSiteSetting(key: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -198,6 +208,9 @@ export class MemStorage implements IStorage {
   private conversations: Map<number, Conversation>;
   private conversationParticipants: Map<string, ConversationParticipant>; // key: `${conversationId}-${userId}`
   private messages: Map<number, Message>;
+  
+  // Site settings
+  private siteSettings: Map<string, SiteSetting>;
 
   constructor() {
     this.users = new Map();
@@ -221,6 +234,9 @@ export class MemStorage implements IStorage {
     this.conversationParticipants = new Map();
     this.messages = new Map();
     
+    // Initialize site settings
+    this.siteSettings = new Map();
+    
     this.idCounters = {
       users: 1,
       courses: 1,
@@ -237,6 +253,7 @@ export class MemStorage implements IStorage {
       errorLogs: 1,
       conversations: 1,
       messages: 1,
+      siteSettings: 1,
     };
     
     // Create a memory store for sessions - using a simple in-memory implementation
