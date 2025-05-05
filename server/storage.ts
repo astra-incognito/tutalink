@@ -129,6 +129,12 @@ export class MemStorage implements IStorage {
   private reviews: Map<number, Review>;
   private notifications: Map<number, any>;
   private payments: Map<number, any>;
+  // Analytics collections
+  private userActivities: Map<number, UserActivity>;
+  private analyticsMetrics: Map<number, AnalyticsMetric>;
+  private pageViews: Map<number, PageView>;
+  private searchAnalytics: Map<number, SearchAnalytic>;
+  private errorLogs: Map<number, ErrorLog>;
   private idCounters: { [key: string]: number };
 
   constructor() {
@@ -140,6 +146,14 @@ export class MemStorage implements IStorage {
     this.reviews = new Map();
     this.notifications = new Map();
     this.payments = new Map();
+    
+    // Initialize analytics collections
+    this.userActivities = new Map();
+    this.analyticsMetrics = new Map();
+    this.pageViews = new Map();
+    this.searchAnalytics = new Map();
+    this.errorLogs = new Map();
+    
     this.idCounters = {
       users: 1,
       courses: 1,
@@ -149,6 +163,11 @@ export class MemStorage implements IStorage {
       reviews: 1,
       notifications: 1,
       payments: 1,
+      userActivities: 1,
+      analyticsMetrics: 1,
+      pageViews: 1,
+      searchAnalytics: 1,
+      errorLogs: 1,
     };
     
     // Create a memory store for sessions - using a simple in-memory implementation
@@ -547,6 +566,188 @@ export class MemStorage implements IStorage {
     const updatedPayment = { ...payment, status };
     this.payments.set(id, updatedPayment);
     return updatedPayment;
+  }
+
+  // Analytics methods - User Activity tracking
+  async logUserActivity(activity: InsertUserActivity): Promise<UserActivity> {
+    const id = this.idCounters.userActivities++;
+    const now = new Date();
+    const userActivity: UserActivity = {
+      ...activity,
+      id,
+      createdAt: now
+    };
+    this.userActivities.set(id, userActivity);
+    return userActivity;
+  }
+
+  async getUserActivities(userId?: number, action?: string, startDate?: Date, endDate?: Date): Promise<UserActivity[]> {
+    let activities = Array.from(this.userActivities.values());
+    
+    if (userId !== undefined) {
+      activities = activities.filter(activity => activity.userId === userId);
+    }
+    
+    if (action) {
+      activities = activities.filter(activity => activity.action === action);
+    }
+    
+    if (startDate) {
+      activities = activities.filter(activity => activity.createdAt >= startDate);
+    }
+    
+    if (endDate) {
+      activities = activities.filter(activity => activity.createdAt <= endDate);
+    }
+    
+    // Sort by creation date, most recent first
+    return activities.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  // Analytics metrics
+  async saveAnalyticsMetric(metric: InsertAnalyticsMetric): Promise<AnalyticsMetric> {
+    const id = this.idCounters.analyticsMetrics++;
+    const analyticsMetric: AnalyticsMetric = {
+      ...metric,
+      id
+    };
+    this.analyticsMetrics.set(id, analyticsMetric);
+    return analyticsMetric;
+  }
+
+  async getAnalyticsMetrics(metricType: string, startDate?: Date, endDate?: Date): Promise<AnalyticsMetric[]> {
+    let metrics = Array.from(this.analyticsMetrics.values())
+      .filter(metric => metric.metricType === metricType);
+    
+    if (startDate) {
+      metrics = metrics.filter(metric => new Date(metric.date) >= startDate);
+    }
+    
+    if (endDate) {
+      metrics = metrics.filter(metric => new Date(metric.date) <= endDate);
+    }
+    
+    // Sort by date, most recent first
+    return metrics.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  // Page views
+  async logPageView(pageView: InsertPageView): Promise<PageView> {
+    const id = this.idCounters.pageViews++;
+    const now = new Date();
+    const view: PageView = {
+      ...pageView,
+      id,
+      createdAt: now
+    };
+    this.pageViews.set(id, view);
+    return view;
+  }
+
+  async getPageViews(path?: string, startDate?: Date, endDate?: Date): Promise<PageView[]> {
+    let views = Array.from(this.pageViews.values());
+    
+    if (path) {
+      views = views.filter(view => view.path === path);
+    }
+    
+    if (startDate) {
+      views = views.filter(view => view.createdAt >= startDate);
+    }
+    
+    if (endDate) {
+      views = views.filter(view => view.createdAt <= endDate);
+    }
+    
+    // Sort by creation date, most recent first
+    return views.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getMostViewedPages(limit: number = 10): Promise<{path: string, count: number}[]> {
+    const views = Array.from(this.pageViews.values());
+    const pageCounts: Record<string, number> = {};
+    
+    // Count page views for each path
+    views.forEach(view => {
+      if (!pageCounts[view.path]) {
+        pageCounts[view.path] = 0;
+      }
+      pageCounts[view.path]++;
+    });
+    
+    // Convert to array and sort by count (descending)
+    const result = Object.entries(pageCounts)
+      .map(([path, count]) => ({ path, count }))
+      .sort((a, b) => b.count - a.count);
+    
+    // Return top N results
+    return result.slice(0, limit);
+  }
+
+  // Search analytics
+  async logSearch(search: InsertSearchAnalytic): Promise<SearchAnalytic> {
+    const id = this.idCounters.searchAnalytics++;
+    const now = new Date();
+    const searchAnalytic: SearchAnalytic = {
+      ...search,
+      id,
+      createdAt: now
+    };
+    this.searchAnalytics.set(id, searchAnalytic);
+    return searchAnalytic;
+  }
+
+  async getPopularSearches(limit: number = 10): Promise<{term: string, count: number}[]> {
+    const searches = Array.from(this.searchAnalytics.values());
+    const searchCounts: Record<string, number> = {};
+    
+    // Count searches for each term
+    searches.forEach(search => {
+      if (!searchCounts[search.searchTerm]) {
+        searchCounts[search.searchTerm] = 0;
+      }
+      searchCounts[search.searchTerm]++;
+    });
+    
+    // Convert to array and sort by count (descending)
+    const result = Object.entries(searchCounts)
+      .map(([term, count]) => ({ term, count }))
+      .sort((a, b) => b.count - a.count);
+    
+    // Return top N results
+    return result.slice(0, limit);
+  }
+
+  // Error logging
+  async logError(error: InsertErrorLog): Promise<ErrorLog> {
+    const id = this.idCounters.errorLogs++;
+    const now = new Date();
+    const errorLog: ErrorLog = {
+      ...error,
+      id,
+      createdAt: now
+    };
+    this.errorLogs.set(id, errorLog);
+    return errorLog;
+  }
+
+  async getErrors(errorType?: string, startDate?: Date, endDate?: Date): Promise<ErrorLog[]> {
+    let errors = Array.from(this.errorLogs.values());
+    
+    if (errorType) {
+      errors = errors.filter(error => error.errorType === errorType);
+    }
+    
+    if (startDate) {
+      errors = errors.filter(error => error.createdAt >= startDate);
+    }
+    
+    if (endDate) {
+      errors = errors.filter(error => error.createdAt <= endDate);
+    }
+    
+    // Sort by creation date, most recent first
+    return errors.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 }
 

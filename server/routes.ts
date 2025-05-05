@@ -4,7 +4,18 @@ import { storage } from "./storage";
 import session from 'express-session';
 import MemoryStore from 'memorystore';
 import { z } from "zod";
-import { insertUserSchema, loginSchema, tutorSearchSchema, insertSessionSchema, insertReviewSchema } from "@shared/schema";
+import { 
+  insertUserSchema, 
+  loginSchema, 
+  tutorSearchSchema, 
+  insertSessionSchema, 
+  insertReviewSchema,
+  insertUserActivitySchema,
+  insertAnalyticsMetricSchema,
+  insertPageViewSchema,
+  insertSearchAnalyticsSchema,
+  insertErrorLogSchema
+} from "@shared/schema";
 
 // For simplicity, we use a memory store for sessions
 const MemoryStoreFactory = MemoryStore(session);
@@ -413,6 +424,210 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(reviews);
     } catch (error) {
       res.status(500).json({ message: "Error fetching tutor reviews" });
+    }
+  });
+
+  // Analytics routes - These routes require admin privileges
+  // User activity logging and retrieval
+  app.post("/api/analytics/user-activity", async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    try {
+      const userActivity = insertUserActivitySchema.parse({
+        ...req.body,
+        userId: req.session.userId,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+      
+      const result = await storage.logUserActivity(userActivity);
+      res.status(201).json(result);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid activity data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Error logging user activity" });
+    }
+  });
+
+  app.get("/api/analytics/user-activity", async (req: Request, res: Response) => {
+    // Only admins should access this endpoint in production
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
+      const action = req.query.action as string;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      
+      const activities = await storage.getUserActivities(userId, action, startDate, endDate);
+      res.json(activities);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching user activities" });
+    }
+  });
+
+  // Page views tracking
+  app.post("/api/analytics/page-view", async (req: Request, res: Response) => {
+    try {
+      const pageView = insertPageViewSchema.parse({
+        ...req.body,
+        userId: req.session.userId || null,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+      
+      const result = await storage.logPageView(pageView);
+      res.status(201).json(result);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid page view data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Error logging page view" });
+    }
+  });
+
+  app.get("/api/analytics/page-views", async (req: Request, res: Response) => {
+    // Only admins should access this endpoint in production
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const path = req.query.path as string;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      
+      const pageViews = await storage.getPageViews(path, startDate, endDate);
+      res.json(pageViews);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching page views" });
+    }
+  });
+
+  app.get("/api/analytics/most-viewed-pages", async (req: Request, res: Response) => {
+    // Only admins should access this endpoint in production
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const mostViewedPages = await storage.getMostViewedPages(limit);
+      res.json(mostViewedPages);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching most viewed pages" });
+    }
+  });
+
+  // Search analytics
+  app.post("/api/analytics/search", async (req: Request, res: Response) => {
+    try {
+      const searchData = insertSearchAnalyticsSchema.parse({
+        ...req.body,
+        userId: req.session.userId || null
+      });
+      
+      const result = await storage.logSearch(searchData);
+      res.status(201).json(result);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid search data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Error logging search" });
+    }
+  });
+
+  app.get("/api/analytics/popular-searches", async (req: Request, res: Response) => {
+    // Only admins should access this endpoint in production
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const popularSearches = await storage.getPopularSearches(limit);
+      res.json(popularSearches);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching popular searches" });
+    }
+  });
+
+  // Error logging
+  app.post("/api/analytics/error", async (req: Request, res: Response) => {
+    try {
+      const errorData = insertErrorLogSchema.parse({
+        ...req.body,
+        userId: req.session.userId || null,
+        userAgent: req.headers['user-agent']
+      });
+      
+      const result = await storage.logError(errorData);
+      res.status(201).json(result);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid error data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Error logging error" });
+    }
+  });
+
+  app.get("/api/analytics/errors", async (req: Request, res: Response) => {
+    // Only admins should access this endpoint in production
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const errorType = req.query.errorType as string;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      
+      const errors = await storage.getErrors(errorType, startDate, endDate);
+      res.json(errors);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching errors" });
+    }
+  });
+
+  // Analytics metrics
+  app.post("/api/analytics/metrics", async (req: Request, res: Response) => {
+    // Only admins should be able to create metrics in production
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const metricData = insertAnalyticsMetricSchema.parse(req.body);
+      const result = await storage.saveAnalyticsMetric(metricData);
+      res.status(201).json(result);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid metric data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Error saving metric" });
+    }
+  });
+
+  app.get("/api/analytics/metrics/:metricType", async (req: Request, res: Response) => {
+    // Only admins should access this endpoint in production
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const { metricType } = req.params;
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+      
+      const metrics = await storage.getAnalyticsMetrics(metricType, startDate, endDate);
+      res.json(metrics);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching metrics" });
     }
   });
 
