@@ -342,3 +342,24 @@ export type ConversationWithParticipants = Conversation & {
 export type MessageWithSender = Message & {
   sender: User;
 };
+
+// Website settings
+export const siteSettings = pgTable("site_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  description: text("description"),
+  category: text("category").notNull().default('general'),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedBy: integer("updated_by").references(() => users.id),
+});
+
+export const insertSiteSettingsSchema = createInsertSchema(siteSettings, {
+  key: z.string().min(1).max(100),
+  value: z.string().max(5000),
+  description: z.string().max(500).optional(),
+  category: z.string().default('general'),
+});
+
+export type SiteSetting = typeof siteSettings.$inferSelect;
+export type InsertSiteSetting = z.infer<typeof insertSiteSettingsSchema>;

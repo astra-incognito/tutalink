@@ -164,7 +164,7 @@ async function initializeDatabase() {
         // Check if admin user exists and create if needed
         const { hashPassword } = await import('./auth');
         const adminUser = await db.execute(sql`
-          SELECT * FROM users WHERE username = 'admin' LIMIT 1
+          SELECT * FROM users WHERE username = 'admin123' LIMIT 1
         `);
         
         if (adminUser.rows.length === 0) {
@@ -175,7 +175,7 @@ async function initializeDatabase() {
               username, password, full_name, email, department, 
               year_of_study, role, bio, is_verified
             ) VALUES (
-              'admin', ${hashedPassword}, 'System Administrator', 
+              'admin123', ${hashedPassword}, 'System Administrator', 
               'admin@tutalink.com', 'Administration', 0, 'admin', 
               'System Administrator Account', TRUE
             )
