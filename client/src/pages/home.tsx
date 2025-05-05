@@ -36,10 +36,10 @@ const Home = () => {
           </div>
           <div className="relative px-4 py-16 sm:px-6 sm:py-24 lg:py-32 lg:px-8">
             <h1 className="text-center text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
-              <span className="block text-white">Learn from the best.</span>
-              <span className="block text-primary-200">Teach what you know.</span>
+              <span className="block text-white drop-shadow-lg bg-black/20 bg-opacity-70 backdrop-blur-sm py-2 rounded-lg">Learn from the best.</span>
+              <span className="block text-primary-100 drop-shadow-lg mt-2 bg-primary/30 bg-opacity-70 backdrop-blur-sm py-2 rounded-lg">Teach what you know.</span>
             </h1>
-            <p className="mt-6 max-w-lg mx-auto text-center text-xl text-primary-100 sm:max-w-3xl">
+            <p className="mt-6 max-w-lg mx-auto text-center text-xl text-white drop-shadow-lg bg-black/30 p-3 rounded-lg sm:max-w-3xl">
               Connect with qualified tutors or share your expertise to help others excel academically.
             </p>
             <div className="mt-10 max-w-sm mx-auto sm:max-w-none sm:flex sm:justify-center">
@@ -67,7 +67,7 @@ const Home = () => {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-gray-900">Top Tutors</h2>
           <Link href="/find-tutors">
-            <a className="text-primary-600 hover:text-primary-700 text-sm font-medium">View all</a>
+            <span className="text-primary-600 hover:text-primary-700 text-sm font-medium cursor-pointer">View all</span>
           </Link>
         </div>
         {isLoading ? (
