@@ -10,11 +10,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Bell, Menu, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import useAuth from "@/hooks/use-auth";
+import { useAuth } from "@/hooks";
 
 const Navbar = () => {
   const [location] = useLocation();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, logoutMutation } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => {
@@ -28,6 +28,8 @@ const Navbar = () => {
       .join("")
       .toUpperCase();
   };
+  
+  const isAuthenticated = !!user;
 
   return (
     <nav className="bg-white shadow-sm">
@@ -36,44 +38,44 @@ const Navbar = () => {
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <Link href="/">
-                <a className="text-2xl font-bold text-primary">TutaLink</a>
+                <span className="text-2xl font-bold text-primary cursor-pointer">TutaLink</span>
               </Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link href="/">
-                <a
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                <span
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer ${
                     location === "/"
                       ? "border-primary text-gray-900"
                       : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
                   }`}
                 >
                   Home
-                </a>
+                </span>
               </Link>
               <Link href="/find-tutors">
-                <a
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                <span
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer ${
                     location === "/find-tutors"
                       ? "border-primary text-gray-900"
                       : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
                   }`}
                 >
                   Find Tutors
-                </a>
+                </span>
               </Link>
               {isAuthenticated && (
                 <>
                   <Link href="/dashboard">
-                    <a
-                      className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                    <span
+                      className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer ${
                         location === "/dashboard"
                           ? "border-primary text-gray-900"
                           : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
                       }`}
                     >
                       Dashboard
-                    </a>
+                    </span>
                   </Link>
                 </>
               )}
@@ -111,18 +113,18 @@ const Navbar = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link href="/dashboard">
-                          <a>Dashboard</a>
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/profile">
-                          <a>Profile</a>
-                        </Link>
-                      </DropdownMenuItem>
+                      <Link href="/dashboard">
+                        <DropdownMenuItem className="cursor-pointer">
+                          Dashboard
+                        </DropdownMenuItem>
+                      </Link>
+                      <Link href="/profile">
+                        <DropdownMenuItem className="cursor-pointer">
+                          Profile
+                        </DropdownMenuItem>
+                      </Link>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => logout()}>
+                      <DropdownMenuItem onClick={() => logoutMutation.mutate()} className="cursor-pointer">
                         Sign out
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -132,10 +134,10 @@ const Navbar = () => {
             ) : (
               <div className="flex items-center space-x-4">
                 <Link href="/login">
-                  <Button variant="ghost">Login</Button>
+                  <Button variant="ghost" className="cursor-pointer">Login</Button>
                 </Link>
                 <Link href="/register">
-                  <Button>Sign Up</Button>
+                  <Button className="cursor-pointer">Sign Up</Button>
                 </Link>
               </div>
             )}
@@ -162,38 +164,38 @@ const Navbar = () => {
         <div className="sm:hidden">
           <div className="pt-2 pb-3 space-y-1">
             <Link href="/">
-              <a
-                className={`block px-3 py-2 rounded-md text-base font-medium ${
+              <span
+                className={`block px-3 py-2 rounded-md text-base font-medium cursor-pointer ${
                   location === "/"
                     ? "bg-primary-50 border-primary text-primary-700"
                     : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                 }`}
               >
                 Home
-              </a>
+              </span>
             </Link>
             <Link href="/find-tutors">
-              <a
-                className={`block px-3 py-2 rounded-md text-base font-medium ${
+              <span
+                className={`block px-3 py-2 rounded-md text-base font-medium cursor-pointer ${
                   location === "/find-tutors"
                     ? "bg-primary-50 border-primary text-primary-700"
                     : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                 }`}
               >
                 Find Tutors
-              </a>
+              </span>
             </Link>
             {isAuthenticated && (
               <Link href="/dashboard">
-                <a
-                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                <span
+                  className={`block px-3 py-2 rounded-md text-base font-medium cursor-pointer ${
                     location === "/dashboard"
                       ? "bg-primary-50 border-primary text-primary-700"
                       : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                   }`}
                 >
                   Dashboard
-                </a>
+                </span>
               </Link>
             )}
           </div>
@@ -222,12 +224,12 @@ const Navbar = () => {
               </div>
               <div className="mt-3 space-y-1">
                 <Link href="/profile">
-                  <a className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
+                  <span className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 cursor-pointer">
                     Your Profile
-                  </a>
+                  </span>
                 </Link>
                 <button
-                  onClick={() => logout()}
+                  onClick={() => logoutMutation.mutate()}
                   className="w-full text-left block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
                 >
                   Sign out
@@ -238,14 +240,14 @@ const Navbar = () => {
             <div className="pt-4 pb-3 border-t border-gray-200">
               <div className="flex items-center justify-around">
                 <Link href="/login">
-                  <a className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100">
+                  <span className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 cursor-pointer">
                     Login
-                  </a>
+                  </span>
                 </Link>
                 <Link href="/register">
-                  <a className="block px-4 py-2 text-base font-medium text-primary-600 hover:text-primary-800">
+                  <span className="block px-4 py-2 text-base font-medium text-primary-600 hover:text-primary-800 cursor-pointer">
                     Sign Up
-                  </a>
+                  </span>
                 </Link>
               </div>
             </div>

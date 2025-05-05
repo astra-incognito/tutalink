@@ -1,8 +1,10 @@
 import { Switch, Route } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useEffect, useState } from "react";
 import { AuthProvider } from "./hooks";
 import { ProtectedRoute } from "./lib/protected-route";
+import AppLoader from "@/components/ui/app-loader";
 
 // Pages
 import Home from "@/pages/home";
@@ -38,6 +40,21 @@ function Router() {
 }
 
 function App() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulate app initialization time
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return <AppLoader fullScreen size="lg" text="Starting TutaLink" />;
+  }
+
   return (
     <TooltipProvider>
       <AuthProvider>
