@@ -107,6 +107,15 @@ export interface IStorage {
   getSessionPayment(sessionId: number): Promise<any | undefined>;
   updatePaymentStatus(id: number, status: string): Promise<any | undefined>;
   
+  // Admin operations
+  getAllUsers(): Promise<User[]>;
+  getUserCount(): Promise<number>;
+  getSessionCount(): Promise<number>;
+  getActiveUserCount(days: number): Promise<number>;
+  getConversionRate(): Promise<number>;
+  getTopSearches(limit: number): Promise<{term: string, count: number}[]>;
+  getUserGrowthData(months: number): Promise<{date: string, count: number, change: number}[]>;
+
   // Analytics operations
   // User Activity tracking - including login, access and app events
   logActivity(activity: { 
@@ -626,6 +635,98 @@ export class MemStorage implements IStorage {
     const updatedPayment = { ...payment, status };
     this.payments.set(id, updatedPayment);
     return updatedPayment;
+  }
+
+  // Admin methods
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
+  async getUserCount(): Promise<number> {
+    return this.users.size;
+  }
+
+  async getSessionCount(): Promise<number> {
+    return this.sessions.size;
+  }
+
+  async getActiveUserCount(days: number): Promise<number> {
+    const now = new Date();
+    const cutoffDate = new Date(now.setDate(now.getDate() - days));
+
+    // Get unique active users from user activities within the specified time frame
+    const activeUserIds = new Set<number>();
+    Array.from(this.userActivities.values()).forEach(activity => {
+      if (activity.userId !== null && activity.createdAt >= cutoffDate) {
+        activeUserIds.add(activity.userId);
+      }
+    });
+
+    return activeUserIds.size;
+  }
+
+  async getConversionRate(): Promise<number> {
+    // Number of learners who have booked at least one session
+    const learnersWithSessions = new Set<number>();
+    Array.from(this.sessions.values()).forEach(session => {
+      learnersWithSessions.add(session.learnerId);
+    });
+
+    // Total number of learners
+    const totalLearners = Array.from(this.users.values()).filter(
+      user => user.role === 'learner'
+    ).length;
+
+    if (totalLearners === 0) return 0;
+    return (learnersWithSessions.size / totalLearners) * 100;
+  }
+
+  async getTopSearches(limit: number): Promise<{term: string, count: number}[]> {
+    // Group searches by term and count occurrences
+    const searchCounts = new Map<string, number>();
+    Array.from(this.searchAnalytics.values()).forEach(search => {
+      const count = searchCounts.get(search.searchTerm) || 0;
+      searchCounts.set(search.searchTerm, count + 1);
+    });
+
+    // Convert to array and sort by count
+    return Array.from(searchCounts.entries())
+      .map(([term, count]) => ({ term, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  }
+
+  async getUserGrowthData(months: number): Promise<{date: string, count: number, change: number}[]> {
+    const now = new Date();
+    const result: {date: string, count: number, change: number}[] = [];
+    
+    for (let i = months - 1; i >= 0; i--) {
+      const currentDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const nextDate = i > 0 
+        ? new Date(now.getFullYear(), now.getMonth() - i + 1, 1) 
+        : new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      
+      // Count users created in this month
+      const usersInMonth = Array.from(this.users.values()).filter(
+        user => user.createdAt >= currentDate && user.createdAt < nextDate
+      ).length;
+      
+      // Format date as month name and year
+      const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      
+      // Calculate change percentage from previous month
+      const change = result.length > 0 
+        ? ((usersInMonth / result[result.length - 1].count) - 1) * 100 
+        : 0;
+      
+      result.push({
+        date: dateStr,
+        count: usersInMonth,
+        change: Math.round(change)
+      });
+    }
+    
+    return result;
   }
 
   // Analytics methods - User Activity tracking
