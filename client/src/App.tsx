@@ -14,6 +14,7 @@ import Register from "@/pages/register";
 import Dashboard from "@/pages/dashboard";
 import FindTutors from "@/pages/find-tutors";
 import TutorProfile from "@/pages/tutor-profile";
+import Messages from "@/pages/messages";
 import NotFound from "@/pages/not-found";
 
 // Layout
@@ -56,6 +57,7 @@ function Router() {
           <ProtectedRoute path="/dashboard" component={Dashboard} />
           <Route path="/find-tutors" component={FindTutors} />
           <Route path="/tutors/:id" component={TutorProfile} />
+          <ProtectedRoute path="/messages" component={Messages} />
           <Route component={NotFound} />
         </Switch>
       </main>
