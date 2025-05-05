@@ -272,7 +272,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isPaid: req.query.isPaid ? req.query.isPaid === 'true' : undefined
       });
       
+      // Cache results for 1 minute if no user-specific filters are applied
+      const cacheTime = filters.courseId || filters.minGpa || filters.isPaid ? 10 : 60;
+      res.set('Cache-Control', `private, max-age=${cacheTime}`);
+      
+      // Track timing for performance monitoring
+      const startTime = process.hrtime();
       const tutors = await storage.getTutors(filters);
+      const elapsed = process.hrtime(startTime);
+      const elapsedMs = (elapsed[0] * 1000 + elapsed[1] / 1000000).toFixed(2);
+      
+      // Log slow queries
+      if (elapsed[0] > 0 || elapsed[1] > 100000000) { // More than 100ms
+        console.warn(`Slow tutor search: ${elapsedMs}ms with filters: ${JSON.stringify(filters)}`);
+      }
       
       // Process tutors to respect GPA visibility settings
       // Note: For tutors, GPA is always shown as it's required to be public
@@ -284,6 +297,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           gpa: (tutor.showGPA === true || tutor.role === 'tutor') ? tutor.gpa : null
         };
       });
+      
+      // Log search for analytics
+      if (req.session.userId) {
+        try {
+          await storage.logActivity({
+            userId: req.session.userId,
+            action: 'TUTOR_SEARCH',
+            metadata: { 
+              filters,
+              resultCount: processedTutors.length
+            },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'] || null
+          });
+        } catch (logErr) {
+          console.error('Failed to log tutor search:', logErr);
+        }
+      }
       
       res.json(processedTutors);
     } catch (error) {
@@ -297,7 +328,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tutors/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      
+      // Cache header for better performance - 30 seconds for tutor profiles
+      // since they don't change frequently
+      res.set('Cache-Control', 'private, max-age=30');
+      
+      const startTime = process.hrtime();
       const tutor = await storage.getTutorDetails(id);
+      const elapsed = process.hrtime(startTime);
+      const elapsedMs = (elapsed[0] * 1000 + elapsed[1] / 1000000).toFixed(2);
+      
+      // Log slow queries for performance monitoring
+      if (elapsed[0] > 0 || elapsed[1] > 100000000) { // More than 100ms
+        console.warn(`Slow tutor lookup: ${elapsedMs}ms for tutor ID ${id}`);
+      }
       
       if (!tutor) {
         return res.status(404).json({ message: "Tutor not found" });
@@ -315,6 +359,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? tutorWithoutPassword.gpa 
           : null
       };
+      
+      // Log profile view for analytics
+      if (req.session.userId) {
+        try {
+          await storage.logActivity({
+            userId: req.session.userId,
+            action: 'TUTOR_PROFILE_VIEW',
+            targetId: id,
+            targetType: 'tutor',
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'] || null
+          });
+        } catch (logErr) {
+          console.error('Failed to log tutor profile view:', logErr);
+        }
+      }
       
       res.json(processedTutor);
     } catch (error) {
@@ -470,8 +530,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
+      // Cache results for 30 seconds
+      res.set('Cache-Control', 'private, max-age=30');
+      
       const role = req.session.role as 'tutor' | 'learner';
+      
+      const startTime = process.hrtime();
       const sessions = await storage.getUserSessions(req.session.userId, role);
+      const elapsed = process.hrtime(startTime);
+      const elapsedMs = (elapsed[0] * 1000 + elapsed[1] / 1000000).toFixed(2);
+      
+      // Log slow session queries
+      if (elapsed[0] > 0 || elapsed[1] > 100000000) { // More than 100ms
+        console.warn(`Slow session lookup: ${elapsedMs}ms for user ID ${req.session.userId} (${role})`);
+      }
+      
+      // Track session dashboard view for analytics
+      try {
+        await storage.logActivity({
+          userId: req.session.userId,
+          action: 'SESSION_DASHBOARD_VIEW',
+          metadata: { 
+            sessionCount: sessions.length,
+            role: role
+          },
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'] || null
+        });
+      } catch (logErr) {
+        console.error('Failed to log session dashboard view:', logErr);
+      }
+      
       res.json(sessions);
     } catch (error) {
       res.status(500).json({ message: "Error fetching sessions" });

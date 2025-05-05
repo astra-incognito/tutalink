@@ -161,6 +161,30 @@ async function initializeDatabase() {
           ON CONFLICT (code) DO NOTHING
         `);
         
+        // Check if admin user exists and create if needed
+        const { hashPassword } = await import('./auth');
+        const adminUser = await db.execute(sql`
+          SELECT * FROM users WHERE username = 'admin' LIMIT 1
+        `);
+        
+        if (adminUser.rows.length === 0) {
+          console.log("Creating admin user...");
+          const hashedPassword = await hashPassword('admin@123');
+          await db.execute(sql`
+            INSERT INTO users (
+              username, password, full_name, email, department, 
+              year_of_study, role, bio, is_verified
+            ) VALUES (
+              'admin', ${hashedPassword}, 'System Administrator', 
+              'admin@tutalink.com', 'Administration', 0, 'admin', 
+              'System Administrator Account', TRUE
+            )
+          `);
+          console.log("Admin user created successfully");
+        } else {
+          console.log("Admin user already exists");
+        }
+        
         console.log("Database schema created successfully");
       } else {
         console.log("Database tables already exist, skipping creation");
@@ -213,14 +237,12 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize database in production environment
-  if (process.env.NODE_ENV === 'production') {
-    try {
-      await initializeDatabase();
-      console.log("Database initialized successfully for production environment");
-    } catch (err) {
-      console.error("Failed to initialize database:", err);
-    }
+  // Initialize database in all environments to ensure admin user exists
+  try {
+    await initializeDatabase();
+    console.log("Database initialized successfully");
+  } catch (err) {
+    console.error("Failed to initialize database:", err);
   }
   
   const server = await registerRoutes(app);

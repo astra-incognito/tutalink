@@ -629,6 +629,38 @@ export class MemStorage implements IStorage {
   }
 
   // Analytics methods - User Activity tracking
+  
+  // Enhanced and optimized activity logging for faster tracking and analysis
+  async logActivity(activity: { 
+    userId: number | null;
+    action: string;
+    metadata?: any;
+    targetId?: number | null;
+    targetType?: string | null;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  }): Promise<UserActivity> {
+    const id = this.idCounters.userActivities++;
+    const now = new Date();
+    
+    // Create a standardized activity record with defaults for missing fields
+    const userActivity: UserActivity = {
+      id,
+      createdAt: now,
+      userId: activity.userId,
+      action: activity.action,
+      targetId: activity.targetId || null,
+      targetType: activity.targetType || null,
+      metadata: activity.metadata || {},
+      ipAddress: activity.ipAddress || null,
+      userAgent: activity.userAgent || null
+    };
+    
+    // Fast storage without additional validation
+    this.userActivities.set(id, userActivity);
+    return userActivity;
+  }
+  
   async logUserActivity(activity: InsertUserActivity): Promise<UserActivity> {
     const id = this.idCounters.userActivities++;
     const now = new Date();

@@ -10,7 +10,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   department: text("department").notNull(),
   yearOfStudy: integer("year_of_study").notNull(),
-  role: text("role").notNull(),
+  role: text("role", { enum: ['admin', 'tutor', 'learner'] }).notNull(),
   gpa: doublePrecision("gpa"),
   showGPA: boolean("show_gpa").default(false), // Learners can choose to show GPA or not
   bio: text("bio"),
@@ -259,7 +259,7 @@ export const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
   department: z.string().min(1, "Department is required"),
   yearOfStudy: z.number().int().min(1).max(10),
-  role: z.enum(["tutor", "learner"]),
+  role: z.enum(["admin", "tutor", "learner"]),
   gpa: z.number().optional(),
   showGPA: z.boolean().optional(),
   bio: z.string().optional(),
