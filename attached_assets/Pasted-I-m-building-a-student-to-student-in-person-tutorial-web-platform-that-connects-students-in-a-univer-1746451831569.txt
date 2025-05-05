@@ -1,0 +1,225 @@
+I'm building a student-to-student in-person tutorial web platform that connects students in a university (e.g., KNUST) to offer paid or free academic assistance within their course area. Please review and generate a full-stack implementation guide, leaving no part out, based on the following detailed feature list:
+🌐 General Concept
+
+Platform Name: [You can suggest a name]
+Target Audience: University students seeking tutorials or willing to teach.
+Roles: Learner, Tutor, Admin
+✅ CORE FEATURES
+1. Authentication & Registration
+
+    Users sign up as either a Learner or Tutor.
+
+    Email and password login.
+
+    Profile details:
+
+        Full name
+
+        Email
+
+        Username
+
+        Department
+
+        Role (Learner/Tutor)
+
+        Year of Study
+
+        GPA (for tutor verification)
+
+    Role-based redirection after login.
+
+    Secure hashed password storage.
+
+    JWT authentication with refresh token flow.
+
+2. Tutor Discovery
+
+    Learners can:
+
+        Search for tutors by course, department, or year.
+
+        Filter by GPA, availability, or free/paid service.
+
+        View tutor profile with bio, courses taught, availability, and pricing.
+
+3. Session Booking
+
+    Learner requests in-person tutoring.
+
+    Tutor receives a notification and accepts/rejects.
+
+    Calendar-style scheduler for setting meeting times.
+
+    In-app messaging or email integration.
+
+4. Admin Dashboard
+
+    View all users.
+
+    Approve tutor registration (verify GPA, etc.).
+
+    See platform analytics:
+
+        Number of sessions
+
+        Most popular departments
+
+        Revenue (if monetized)
+
+    Suspend or remove users.
+
+5. Reviews & Ratings
+
+    Learners rate tutors after each session.
+
+    Star rating + text review.
+
+    Averages displayed on tutor profiles.
+
+6. Monetization (Optional)
+
+    Tutors can charge per session.
+
+    Integration with payment gateway (e.g., Paystack, Stripe).
+
+    Platform can take a percentage commission.
+
+    Admin can manage payouts.
+
+7. Free & Paid Services
+
+    Tutors can mark a course as:
+
+        Free: No payment required
+
+        Paid: Set a rate per session
+
+    Learners can choose based on their budget.
+
+8. User Dashboard
+
+    Tutor Dashboard:
+
+        See upcoming sessions
+
+        View earnings
+
+        Edit profile, courses, and availability
+
+    Learner Dashboard:
+
+        View requested sessions
+
+        Track session history
+
+        Edit profile
+
+9. Notifications
+
+    Real-time alerts for:
+
+        Session requests
+
+        Session updates
+
+        Admin messages
+
+    Email or in-app options
+
+10. Security
+
+    Form validation and sanitation.
+
+    Rate limiting & CAPTCHA on login.
+
+    Secure session handling.
+
+    Admin protected routes.
+
+🛠️ TECH STACK
+Frontend:
+
+    React + TypeScript
+
+    TailwindCSS
+
+    React Router DOM
+
+    React Query or SWR (for data fetching)
+
+Backend:
+
+    Node.js + Express
+
+    PostgreSQL or MongoDB
+
+    Prisma or Drizzle ORM
+
+    JWT Authentication
+
+    Nodemailer for emails
+
+Dev Tools:
+
+    Vite
+
+    ESLint + Prettier
+
+    Git + GitHub for version control
+
+    Docker (optional for deployment)
+
+Hosting:
+
+    Frontend: Vercel, Netlify, or Render
+
+    Backend: Render or Railway
+
+    DB: Supabase, Neon, or PlanetScale
+
+📁 Suggested File Structure
+
+/client
+  /components
+  /pages
+  /hooks
+  /utils
+  /styles
+  vite.config.ts
+  tailwind.config.ts
+
+/server
+  /controllers
+  /routes
+  /middleware
+  /models
+  /services
+  index.ts
+
+/db
+  schema.sql or schema.prisma
+
+📌 Expectations
+
+I want you to:
+
+    Generate a full working implementation or guide.
+
+    Suggest any improvements or missing elements.
+
+    Provide production-ready code for critical parts like:
+
+        Auth flow
+
+        Session booking logic
+
+        Tutor filtering logic
+
+    Recommend database schema designs.
+
+    Give deployment steps.
+
+    Suggest monitoring tools if necessary.
+
+Do not skip or assume anything is obvious.
