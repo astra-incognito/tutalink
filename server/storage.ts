@@ -261,6 +261,40 @@ export class MemStorage implements IStorage {
 
     // Add some initial courses
     this.initializeCourses();
+    
+    // Add default admin user
+    this.initializeAdminUser();
+  }
+  
+  private initializeAdminUser() {
+    // Check if admin user already exists
+    const adminExists = Array.from(this.users.values()).some(
+      user => user.username === 'admin123'
+    );
+    
+    if (!adminExists) {
+      console.log("Creating admin user in memory storage");
+      this.createUser({
+        username: 'admin123',
+        password: 'admin@123',
+        fullName: 'System Administrator',
+        email: 'admin@tutalink.com',
+        department: 'Administration',
+        yearOfStudy: 0,
+        role: 'admin',
+        gpa: null,
+        showGPA: null,
+        bio: 'System Administrator Account',
+        isVerified: true,
+        verificationToken: null,
+        googleId: null,
+        facebookId: null,
+        refreshToken: null,
+        preferences: null,
+        profileImage: null
+      });
+      console.log("Admin user created in memory storage");
+    }
   }
 
   private initializeCourses() {
@@ -326,12 +360,13 @@ export class MemStorage implements IStorage {
       id,
       createdAt: now,
       averageRating: 0,
-      isVerified: false,
-      verificationToken: null,
-      googleId: null,
-      facebookId: null,
-      refreshToken: null,
-      preferences: null,
+      // Use existing properties if provided, otherwise set defaults
+      isVerified: insertUser.isVerified !== undefined ? insertUser.isVerified : false,
+      verificationToken: insertUser.verificationToken || null,
+      googleId: insertUser.googleId || null,
+      facebookId: insertUser.facebookId || null,
+      refreshToken: insertUser.refreshToken || null,
+      preferences: insertUser.preferences || null,
     };
     this.users.set(id, user);
     return user;
