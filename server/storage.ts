@@ -800,6 +800,306 @@ export class MemStorage implements IStorage {
     // Sort by creation date, most recent first
     return errors.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
+
+  /* MESSAGING SYSTEM METHODS */
+
+  // Conversations
+  async getConversation(id: number): Promise<Conversation | undefined> {
+    return this.conversations.get(id);
+  }
+
+  async getConversationWithDetails(id: number): Promise<ConversationWithParticipants | undefined> {
+    const conversation = await this.getConversation(id);
+    if (!conversation) return undefined;
+
+    const participants = await this.getConversationParticipants(id);
+    const messages = await this.getConversationMessages(id, 1); // Get just the last message
+    const lastMessage = messages.length > 0 ? messages[0] : undefined;
+    
+    return {
+      ...conversation,
+      participants,
+      lastMessage
+    };
+  }
+
+  async getUserConversations(userId: number): Promise<ConversationWithParticipants[]> {
+    // Find all conversations where the user is a participant
+    const userParticipations = Array.from(this.conversationParticipants.values())
+      .filter(p => p.userId === userId && p.isActive);
+    
+    const conversationsWithDetails: ConversationWithParticipants[] = [];
+    
+    for (const participation of userParticipations) {
+      const conversation = await this.getConversationWithDetails(participation.conversationId);
+      if (conversation) {
+        // Add unread count
+        const unreadCount = await this.getUnreadMessageCount(conversation.id, userId);
+        conversationsWithDetails.push({
+          ...conversation,
+          unreadCount
+        });
+      }
+    }
+    
+    // Sort by lastMessageAt (most recent first)
+    return conversationsWithDetails.sort((a, b) => {
+      if (!a.lastMessageAt) return 1;
+      if (!b.lastMessageAt) return -1;
+      return b.lastMessageAt.getTime() - a.lastMessageAt.getTime();
+    });
+  }
+
+  async createConversation(insertConversation: InsertConversation): Promise<Conversation> {
+    const id = this.idCounters.conversations++;
+    const now = new Date();
+    
+    const conversation: Conversation = {
+      ...insertConversation,
+      id,
+      createdAt: now,
+      updatedAt: now,
+      lastMessageAt: null
+    };
+    
+    this.conversations.set(id, conversation);
+    return conversation;
+  }
+
+  async updateConversation(id: number, data: Partial<Conversation>): Promise<Conversation | undefined> {
+    const conversation = this.conversations.get(id);
+    if (!conversation) return undefined;
+    
+    const updatedConversation = { 
+      ...conversation,
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    this.conversations.set(id, updatedConversation);
+    return updatedConversation;
+  }
+  
+  // Participants
+  async addParticipantToConversation(participant: InsertConversationParticipant): Promise<ConversationParticipant> {
+    const now = new Date();
+    const conversationParticipant: ConversationParticipant = {
+      ...participant,
+      joinedAt: now,
+      lastReadAt: now
+    };
+    
+    const key = `${participant.conversationId}-${participant.userId}`;
+    this.conversationParticipants.set(key, conversationParticipant);
+    return conversationParticipant;
+  }
+
+  async getConversationParticipants(conversationId: number): Promise<(ConversationParticipant & { user: User })[]> {
+    const participants = Array.from(this.conversationParticipants.values())
+      .filter(p => p.conversationId === conversationId && p.isActive);
+    
+    const participantsWithUsers = await Promise.all(
+      participants.map(async p => {
+        const user = await this.getUser(p.userId);
+        if (!user) throw new Error(`User with id ${p.userId} not found`);
+        return { ...p, user };
+      })
+    );
+    
+    return participantsWithUsers;
+  }
+
+  async updateParticipantLastRead(conversationId: number, userId: number): Promise<ConversationParticipant | undefined> {
+    const key = `${conversationId}-${userId}`;
+    const participant = this.conversationParticipants.get(key);
+    if (!participant) return undefined;
+    
+    const updatedParticipant = {
+      ...participant,
+      lastReadAt: new Date()
+    };
+    
+    this.conversationParticipants.set(key, updatedParticipant);
+    return updatedParticipant;
+  }
+
+  async removeParticipantFromConversation(conversationId: number, userId: number): Promise<boolean> {
+    const key = `${conversationId}-${userId}`;
+    const participant = this.conversationParticipants.get(key);
+    if (!participant) return false;
+    
+    // Instead of removing, mark as inactive
+    const updatedParticipant = {
+      ...participant,
+      isActive: false
+    };
+    
+    this.conversationParticipants.set(key, updatedParticipant);
+    return true;
+  }
+  
+  // Messages
+  async getMessage(id: number): Promise<Message | undefined> {
+    return this.messages.get(id);
+  }
+
+  async getConversationMessages(conversationId: number, limit = 50, offset = 0): Promise<MessageWithSender[]> {
+    const allMessages = Array.from(this.messages.values())
+      .filter(m => m.conversationId === conversationId && !m.isDeleted);
+    
+    // Sort by createdAt (most recent first for easier pagination)
+    allMessages.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    
+    // Apply pagination
+    const paginatedMessages = allMessages.slice(offset, offset + limit);
+    
+    // Add sender details
+    const messagesWithSender = await Promise.all(
+      paginatedMessages.map(async m => {
+        const sender = await this.getUser(m.senderId);
+        if (!sender) throw new Error(`User with id ${m.senderId} not found`);
+        return { ...m, sender };
+      })
+    );
+    
+    return messagesWithSender;
+  }
+
+  async createMessage(insertMessage: InsertMessage): Promise<Message> {
+    const id = this.idCounters.messages++;
+    const now = new Date();
+    
+    const message: Message = {
+      ...insertMessage,
+      id,
+      createdAt: now,
+      updatedAt: now,
+      isDeleted: false
+    };
+    
+    this.messages.set(id, message);
+    
+    // Update conversation's lastMessageAt
+    await this.updateConversation(insertMessage.conversationId, {
+      lastMessageAt: now
+    });
+    
+    return message;
+  }
+
+  async deleteMessage(id: number): Promise<boolean> {
+    const message = this.messages.get(id);
+    if (!message) return false;
+    
+    // Instead of deleting, mark as deleted
+    const updatedMessage = {
+      ...message,
+      isDeleted: true,
+      updatedAt: new Date()
+    };
+    
+    this.messages.set(id, updatedMessage);
+    return true;
+  }
+
+  async getUnreadMessageCount(conversationId: number, userId: number): Promise<number> {
+    const key = `${conversationId}-${userId}`;
+    const participant = this.conversationParticipants.get(key);
+    if (!participant || !participant.lastReadAt) return 0;
+    
+    // Count messages that were created after the user last read the conversation
+    return Array.from(this.messages.values()).filter(
+      m => m.conversationId === conversationId && 
+           !m.isDeleted && 
+           m.senderId !== userId &&
+           m.createdAt > participant.lastReadAt!
+    ).length;
+  }
+  
+  // Find or create conversation
+  async findOrCreateConversationBetweenUsers(userIds: number[]): Promise<Conversation> {
+    if (userIds.length < 2) {
+      throw new Error('At least two users are required to create a conversation');
+    }
+    
+    // First, check if a direct conversation between these users already exists
+    // We're looking for a conversation where only these exact users are participants
+    const allConversations = Array.from(this.conversations.values());
+    
+    for (const conversation of allConversations) {
+      // Skip conversations with a sessionId (those are for specific sessions)
+      if (conversation.sessionId) continue;
+      
+      const participants = await this.getConversationParticipants(conversation.id);
+      
+      // Only consider active participants
+      const activeParticipants = participants.filter(p => p.isActive);
+      
+      // Check if this conversation includes exactly these users
+      if (activeParticipants.length === userIds.length) {
+        // Check if all userIds are in the activeParticipants
+        const allUsersIncluded = userIds.every(userId => 
+          activeParticipants.some(p => p.userId === userId)
+        );
+        
+        if (allUsersIncluded) {
+          return conversation;
+        }
+      }
+    }
+    
+    // If no existing conversation is found, create a new one
+    const conversation = await this.createConversation({});
+    
+    // Add all users as participants
+    for (const userId of userIds) {
+      await this.addParticipantToConversation({
+        conversationId: conversation.id,
+        userId,
+        isActive: true,
+        role: 'member'
+      });
+    }
+    
+    return conversation;
+  }
+  
+  // Session-related conversations
+  async getSessionConversation(sessionId: number): Promise<ConversationWithParticipants | undefined> {
+    const conversation = Array.from(this.conversations.values())
+      .find(c => c.sessionId === sessionId);
+    
+    if (!conversation) return undefined;
+    
+    return this.getConversationWithDetails(conversation.id);
+  }
+
+  async createSessionConversation(sessionId: number, participantIds: number[]): Promise<Conversation> {
+    // First check if a conversation for this session already exists
+    const existingConversation = await this.getSessionConversation(sessionId);
+    if (existingConversation) return existingConversation;
+    
+    // Get session details for the title
+    const session = await this.getSession(sessionId);
+    if (!session) throw new Error(`Session with id ${sessionId} not found`);
+    
+    const conversation = await this.createConversation({
+      title: `Session: ${session.course.code}`,
+      sessionId
+    });
+    
+    // Add all participants
+    for (const userId of participantIds) {
+      await this.addParticipantToConversation({
+        conversationId: conversation.id,
+        userId,
+        isActive: true,
+        role: 'member'
+      });
+    }
+    
+    return conversation;
+  }
 }
 
 // For now, use in-memory storage until we fix the database implementation
