@@ -15,12 +15,27 @@ import {
   UserWithDetails,
   SessionWithDetails,
   ReviewWithDetails,
+  UserActivity,
+  InsertUserActivity,
+  AnalyticsMetric,
+  InsertAnalyticsMetric,
+  PageView,
+  InsertPageView,
+  SearchAnalytic,
+  InsertSearchAnalytic,
+  ErrorLog,
+  InsertErrorLog,
   users,
   courses,
   tutorCourses,
   availability,
   sessions,
-  reviews
+  reviews,
+  userActivity,
+  analyticsMetrics,
+  pageViews,
+  searchAnalytics,
+  errorLogs
 } from "@shared/schema";
 
 // We'll import DatabaseStorage at the end of the file to avoid circular dependencies
@@ -80,6 +95,28 @@ export interface IStorage {
   createPayment(payment: any): Promise<any>;
   getSessionPayment(sessionId: number): Promise<any | undefined>;
   updatePaymentStatus(id: number, status: string): Promise<any | undefined>;
+  
+  // Analytics operations
+  // User Activity tracking
+  logUserActivity(activity: InsertUserActivity): Promise<UserActivity>;
+  getUserActivities(userId?: number, action?: string, startDate?: Date, endDate?: Date): Promise<UserActivity[]>;
+  
+  // Analytics metrics
+  saveAnalyticsMetric(metric: InsertAnalyticsMetric): Promise<AnalyticsMetric>;
+  getAnalyticsMetrics(metricType: string, startDate?: Date, endDate?: Date): Promise<AnalyticsMetric[]>;
+  
+  // Page views
+  logPageView(pageView: InsertPageView): Promise<PageView>;
+  getPageViews(path?: string, startDate?: Date, endDate?: Date): Promise<PageView[]>;
+  getMostViewedPages(limit?: number): Promise<{path: string, count: number}[]>;
+  
+  // Search analytics
+  logSearch(search: InsertSearchAnalytic): Promise<SearchAnalytic>;
+  getPopularSearches(limit?: number): Promise<{term: string, count: number}[]>;
+  
+  // Error logging
+  logError(error: InsertErrorLog): Promise<ErrorLog>;
+  getErrors(errorType?: string, startDate?: Date, endDate?: Date): Promise<ErrorLog[]>;
 }
 
 export class MemStorage implements IStorage {

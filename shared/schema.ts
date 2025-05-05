@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, json } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, json, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -102,6 +102,60 @@ export const payments = pgTable("payments", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Analytics tables
+export const userActivity = pgTable("user_activity", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  action: text("action").notNull(), // 'login', 'logout', 'search', 'view_profile', 'book_session', etc.
+  targetId: integer("target_id"), // Optional, references another entity like a tutor or course
+  targetType: text("target_type"), // 'tutor', 'course', 'session', etc.
+  metadata: json("metadata"), // Additional data related to the action
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+});
+
+export const analyticsMetrics = pgTable("analytics_metrics", {
+  id: serial("id").primaryKey(),
+  date: date("date").notNull(),
+  metricType: text("metric_type").notNull(), // 'daily_active_users', 'new_users', 'sessions_booked', 'sessions_completed', etc.
+  value: integer("value").notNull(),
+  metadata: json("metadata"), // Additional information about the metric
+});
+
+export const pageViews = pgTable("page_views", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id), // Optional: could be anonymous
+  path: text("path").notNull(),
+  queryParams: text("query_params"),
+  referrer: text("referrer"),
+  duration: integer("duration"), // Time spent on page in seconds
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+});
+
+export const searchAnalytics = pgTable("search_analytics", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id), // Optional: could be anonymous
+  searchTerm: text("search_term").notNull(),
+  filters: json("filters"), // Filters applied, e.g. department, course, etc.
+  resultCount: integer("result_count").notNull(),
+  clickedResult: integer("clicked_result"), // ID of the clicked result, if any
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const errorLogs = pgTable("error_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id), // Optional: could be anonymous
+  errorType: text("error_type").notNull(),
+  errorMessage: text("error_message").notNull(),
+  stackTrace: text("stack_trace"),
+  url: text("url").notNull(),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users)
   .omit({ 
@@ -136,6 +190,21 @@ export const insertNotificationSchema = createInsertSchema(notifications)
 
 export const insertPaymentSchema = createInsertSchema(payments)
   .omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertUserActivitySchema = createInsertSchema(userActivity)
+  .omit({ id: true, createdAt: true });
+
+export const insertAnalyticsMetricSchema = createInsertSchema(analyticsMetrics)
+  .omit({ id: true });
+
+export const insertPageViewSchema = createInsertSchema(pageViews)
+  .omit({ id: true, createdAt: true });
+
+export const insertSearchAnalyticsSchema = createInsertSchema(searchAnalytics)
+  .omit({ id: true, createdAt: true });
+
+export const insertErrorLogSchema = createInsertSchema(errorLogs)
+  .omit({ id: true, createdAt: true });
 
 // Custom Zod schemas for frontend validation
 export const registerSchema = z.object({
@@ -176,6 +245,18 @@ export type Session = typeof sessions.$inferSelect;
 export type InsertSession = z.infer<typeof insertSessionSchema>;
 export type Review = typeof reviews.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
+
+// Analytics types
+export type UserActivity = typeof userActivity.$inferSelect;
+export type InsertUserActivity = z.infer<typeof insertUserActivitySchema>;
+export type AnalyticsMetric = typeof analyticsMetrics.$inferSelect;
+export type InsertAnalyticsMetric = z.infer<typeof insertAnalyticsMetricSchema>;
+export type PageView = typeof pageViews.$inferSelect;
+export type InsertPageView = z.infer<typeof insertPageViewSchema>;
+export type SearchAnalytic = typeof searchAnalytics.$inferSelect;
+export type InsertSearchAnalytic = z.infer<typeof insertSearchAnalyticsSchema>;
+export type ErrorLog = typeof errorLogs.$inferSelect;
+export type InsertErrorLog = z.infer<typeof insertErrorLogSchema>;
 
 export type UserWithDetails = User & {
   courses?: (TutorCourse & { course: Course })[];
