@@ -213,6 +213,7 @@ export class MemStorage implements IStorage {
         tutors = tutors.filter(tutor => tutor.department === options.department);
       }
       
+      // For tutors, GPA is always shown
       if (options.minGpa !== undefined) {
         tutors = tutors.filter(tutor => tutor.gpa !== undefined && tutor.gpa >= options.minGpa);
       }
@@ -263,6 +264,8 @@ export class MemStorage implements IStorage {
     const averageRating = reviews.length 
       ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
       : 0;
+    
+    // For tutors, GPA is always shown so no need to check showGPA
     
     return {
       ...tutor,

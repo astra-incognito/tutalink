@@ -144,6 +144,7 @@ const TutorForm = ({ onSubmit }: TutorFormProps) => {
       yearOfStudy: data.yearOfStudy,
       role: data.role,
       gpa: data.gpa,
+      showGPA: true, // Tutors must always show their GPA
       bio: data.bio,
       tutorCourses: tutorCoursesData,
       availabilities: data.availabilities,

@@ -12,6 +12,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -21,8 +22,13 @@ import {
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 
-// Simplified schema for learners
-const learnerSchema = registerSchema.omit({ gpa: true, bio: true });
+// Schema for learners
+const learnerSchema = registerSchema
+  .omit({ bio: true })
+  .extend({
+    gpa: z.number().optional(),
+    showGPA: z.boolean().default(false).optional(),
+  });
 
 type LearnerFormValues = z.infer<typeof learnerSchema>;
 
@@ -172,6 +178,58 @@ const LearnerForm = ({ onSubmit }: LearnerFormProps) => {
                   </SelectContent>
                 </Select>
                 <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="gpa"
+            render={({ field }) => (
+              <FormItem className="sm:col-span-3">
+                <FormLabel>GPA (optional)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="4.0"
+                    placeholder="Your GPA (optional)"
+                    {...field}
+                    onChange={(e) => 
+                      field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)
+                    }
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="showGPA"
+            render={({ field }) => (
+              <FormItem className="sm:col-span-3 flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      id="show-gpa"
+                      disabled={!form.watch("gpa")}
+                    />
+                    <label
+                      htmlFor="show-gpa"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Make my GPA public
+                    </label>
+                  </div>
+                </FormControl>
+                <p className="text-sm text-muted-foreground">
+                  Toggle this to allow others to see your GPA
+                </p>
               </FormItem>
             )}
           />

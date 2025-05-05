@@ -42,11 +42,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Username already exists" });
       }
 
-      // For tutors, validate GPA requirement
+      // For tutors, validate GPA requirement and force showGPA to true
       if (userData.role === "tutor") {
         if (!userData.gpa || userData.gpa < 3.5) {
           return res.status(400).json({ message: "Tutors must have a GPA of at least 3.5" });
         }
+        // Tutors must always show their GPA
+        userData.showGPA = true;
+      } else if (userData.role === "learner") {
+        // Learners have showGPA defaulted to false unless explicitly set
+        userData.showGPA = userData.showGPA || false;
       }
 
       const user = await storage.createUser(userData);
@@ -116,7 +121,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Remove password from response
     const { password, ...userWithoutPassword } = user;
     
-    res.json(userWithoutPassword);
+    // Apply GPA visibility rules for consistency
+    // Note: For the user's own data we don't hide their GPA since they own the data
+    // This is mainly for type consistency with other endpoints
+    const processedUser = {
+      ...userWithoutPassword,
+      // Force showGPA to true for tutors
+      showGPA: user.role === 'tutor' ? true : userWithoutPassword.showGPA
+    };
+    
+    res.json(processedUser);
   });
 
   // Course routes
@@ -150,7 +164,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const tutors = await storage.getTutors(filters);
-      res.json(tutors);
+      
+      // Process tutors to respect GPA visibility settings
+      // Note: For tutors, GPA is always shown as it's required to be public
+      // We keep this code here for completeness and consistency
+      const processedTutors = tutors.map(tutor => {
+        return {
+          ...tutor,
+          // Only show GPA if showGPA is true or if role is tutor
+          gpa: (tutor.showGPA === true || tutor.role === 'tutor') ? tutor.gpa : null
+        };
+      });
+      
+      res.json(processedTutors);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid filter parameters", errors: error.errors });
@@ -171,7 +197,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Remove password from response
       const { password, ...tutorWithoutPassword } = tutor;
       
-      res.json(tutorWithoutPassword);
+      // Process tutor to respect GPA visibility settings
+      // For students with showGPA=false, hide their GPA
+      // For tutors, always show GPA as it's a requirement
+      const processedTutor = {
+        ...tutorWithoutPassword,
+        gpa: (tutorWithoutPassword.showGPA === true || tutorWithoutPassword.role === 'tutor') 
+          ? tutorWithoutPassword.gpa 
+          : null
+      };
+      
+      res.json(processedTutor);
     } catch (error) {
       res.status(500).json({ message: "Error fetching tutor details" });
     }
