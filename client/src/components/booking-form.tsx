@@ -121,9 +121,13 @@ const BookingForm = ({ tutor, onSuccess, onCancel }: BookingFormProps) => {
   // Create session mutation
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: BookingFormValues) => {
+      // Format the date properly for the API
+      const formattedDate = data.scheduleDate.toISOString();
+      
       // Add price if this is a paid course
       const sessionData = {
         ...data,
+        scheduleDate: formattedDate, // Use the properly formatted date string
         price: selectedCourse?.isPaid ? selectedCourse.hourlyRate * (data.duration / 60) : null,
         isPaid: selectedCourse?.isPaid || false,
       };
