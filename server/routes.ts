@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import session from 'express-session';
 import MemoryStore from 'memorystore';
 import { z } from "zod";
+import { WebSocketServer, WebSocket } from 'ws';
 import { 
   insertUserSchema, 
   loginSchema, 
@@ -14,7 +15,11 @@ import {
   insertAnalyticsMetricSchema,
   insertPageViewSchema,
   insertSearchAnalyticsSchema,
-  insertErrorLogSchema
+  insertErrorLogSchema,
+  insertMessageSchema,
+  insertConversationSchema,
+  insertConversationParticipantSchema,
+  Message
 } from "@shared/schema";
 
 // For simplicity, we use a memory store for sessions
@@ -142,6 +147,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
     
     res.json(processedUser);
+  });
+  
+  // Get users for messaging
+  app.get("/api/users", async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      // Get all users
+      let users = Array.from((storage as any).users.values());
+      
+      // Filter by role if specified
+      const role = req.query.role as string;
+      if (role) {
+        users = users.filter(user => user.role === role);
+      }
+      
+      // Remove passwords and sensitive information
+      const processedUsers = users.map(user => {
+        const { password, refreshToken, verificationToken, ...userWithoutSensitiveInfo } = user;
+        
+        // Apply GPA visibility rules
+        return {
+          ...userWithoutSensitiveInfo,
+          gpa: (userWithoutSensitiveInfo.showGPA === true || userWithoutSensitiveInfo.role === 'tutor') 
+            ? userWithoutSensitiveInfo.gpa 
+            : null
+        };
+      });
+      
+      res.json(processedUsers);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching users" });
+    }
   });
 
   // Course routes
@@ -631,6 +671,332 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Messaging API endpoints
+  
+  // Get user's conversations
+  app.get("/api/conversations", async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const conversations = await storage.getUserConversations(req.session.userId);
+      res.json(conversations);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching conversations" });
+    }
+  });
+  
+  // Get a specific conversation with messages
+  app.get("/api/conversations/:id", async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const conversationId = parseInt(req.params.id);
+      const conversation = await storage.getConversationWithDetails(conversationId);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      // Check if user is a participant in this conversation
+      const isParticipant = conversation.participants.some(p => p.userId === req.session.userId);
+      if (!isParticipant) {
+        return res.status(403).json({ message: "You are not a participant in this conversation" });
+      }
+      
+      // Get messages for this conversation
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      const messages = await storage.getConversationMessages(conversationId, limit, offset);
+      
+      // Mark conversation as read for this user
+      await storage.updateParticipantLastRead(conversationId, req.session.userId);
+      
+      res.json({ conversation, messages });
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching conversation details" });
+    }
+  });
+  
+  // Create a new conversation
+  app.post("/api/conversations", async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const { title, participantIds } = req.body;
+      
+      // Ensure the current user is included in participants
+      if (!participantIds.includes(req.session.userId)) {
+        participantIds.push(req.session.userId);
+      }
+      
+      // Create conversation
+      const conversation = await storage.createConversation({
+        title: title || null,
+        sessionId: null
+      });
+      
+      // Add participants
+      for (const userId of participantIds) {
+        await storage.addParticipantToConversation({
+          conversationId: conversation.id,
+          userId,
+          isActive: true,
+          role: userId === req.session.userId ? 'owner' : 'member'
+        });
+      }
+      
+      const conversationWithDetails = await storage.getConversationWithDetails(conversation.id);
+      res.status(201).json(conversationWithDetails);
+    } catch (error) {
+      res.status(500).json({ message: "Error creating conversation" });
+    }
+  });
+  
+  // Find or create a direct conversation between users
+  app.post("/api/conversations/direct", async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const { otherUserId } = req.body;
+      
+      if (!otherUserId) {
+        return res.status(400).json({ message: "otherUserId is required" });
+      }
+      
+      // Verify other user exists
+      const otherUser = await storage.getUser(otherUserId);
+      if (!otherUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Find or create conversation between these two users
+      const conversation = await storage.findOrCreateConversationBetweenUsers([
+        req.session.userId,
+        otherUserId
+      ]);
+      
+      const conversationWithDetails = await storage.getConversationWithDetails(conversation.id);
+      res.json(conversationWithDetails);
+    } catch (error) {
+      res.status(500).json({ message: "Error creating direct conversation" });
+    }
+  });
+  
+  // Send a message to a conversation
+  app.post("/api/conversations/:id/messages", async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const conversationId = parseInt(req.params.id);
+      const conversation = await storage.getConversationWithDetails(conversationId);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      // Check if user is a participant in this conversation
+      const isParticipant = conversation.participants.some(p => 
+        p.userId === req.session.userId && p.isActive
+      );
+      
+      if (!isParticipant) {
+        return res.status(403).json({ message: "You are not a participant in this conversation" });
+      }
+      
+      // Parse and validate message data
+      const messageData = insertMessageSchema.parse({
+        ...req.body,
+        conversationId,
+        senderId: req.session.userId,
+        contentType: req.body.contentType || 'text'
+      });
+      
+      // Create message
+      const message = await storage.createMessage(messageData);
+      
+      // For the response, include the sender details
+      const sender = await storage.getUser(req.session.userId);
+      if (!sender) {
+        return res.status(500).json({ message: "Error retrieving sender details" });
+      }
+      
+      const { password: _, ...senderWithoutPassword } = sender;
+      
+      const messageWithSender = {
+        ...message,
+        sender: senderWithoutPassword
+      };
+      
+      // Mark conversation as read for the sender
+      await storage.updateParticipantLastRead(conversationId, req.session.userId);
+      
+      // Broadcast this message to all connected WebSocket clients who are participants
+      broadcastMessageToConversation(conversationId, messageWithSender);
+      
+      res.status(201).json(messageWithSender);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid message data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Error sending message" });
+    }
+  });
+  
+  // Session-specific conversation
+  app.get("/api/sessions/:id/conversation", async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    try {
+      const sessionId = parseInt(req.params.id);
+      
+      // Verify session exists and user is a participant
+      const session = await storage.getSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
+      // Check if user is a participant in this session
+      if (session.tutorId !== req.session.userId && session.learnerId !== req.session.userId) {
+        return res.status(403).json({ message: "You are not a participant in this session" });
+      }
+      
+      // Get or create conversation for this session
+      let conversation = await storage.getSessionConversation(sessionId);
+      
+      if (!conversation) {
+        // Create a new conversation for this session
+        conversation = await storage.createSessionConversation(
+          sessionId,
+          [session.tutorId, session.learnerId]
+        );
+      }
+      
+      // Get messages for this conversation
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      const messages = await storage.getConversationMessages(conversation.id, limit, offset);
+      
+      // Mark conversation as read for this user
+      await storage.updateParticipantLastRead(conversation.id, req.session.userId);
+      
+      res.json({ conversation, messages });
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching session conversation" });
+    }
+  });
+  
+  // Create HTTP server
   const httpServer = createServer(app);
+  
+  // Set up WebSocket server for real-time messaging
+  const wss = new WebSocketServer({ 
+    server: httpServer,
+    path: '/ws'
+  });
+  
+  // Store active connections with user IDs
+  const clients = new Map<number, Set<WebSocket>>();
+  
+  // Helper function to broadcast message to all participants of a conversation
+  function broadcastMessageToConversation(conversationId: number, message: Message & { sender: any }) {
+    storage.getConversationParticipants(conversationId)
+      .then(participants => {
+        participants.forEach(participant => {
+          const userConnections = clients.get(participant.userId);
+          if (userConnections) {
+            const payload = JSON.stringify({
+              type: 'message',
+              conversationId,
+              message
+            });
+            
+            userConnections.forEach(client => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(payload);
+              }
+            });
+          }
+        });
+      })
+      .catch(err => {
+        console.error('Error broadcasting message:', err);
+      });
+  }
+  
+  wss.on('connection', (ws: WebSocket, req) => {
+    console.log('WebSocket connection established');
+    
+    // Find the user ID from the session
+    (req as any).session = undefined;
+    
+    const sessionParser = (req: any, res: any, next: () => void) => {
+      session({
+        secret: process.env.SESSION_SECRET || "tuta-link-secret",
+        resave: false,
+        saveUninitialized: false,
+        store: new MemoryStoreFactory({
+          checkPeriod: 86400000,
+        }),
+      })(req, res, next);
+    };
+    
+    sessionParser(req, {}, async () => {
+      const userId = (req as any).session?.userId;
+      
+      if (!userId) {
+        ws.close(1008, 'Not authenticated');
+        return;
+      }
+      
+      // Store connection with user ID
+      if (!clients.has(userId)) {
+        clients.set(userId, new Set());
+      }
+      clients.get(userId)?.add(ws);
+      
+      // Send initial connection success message
+      ws.send(JSON.stringify({ 
+        type: 'connection', 
+        status: 'connected',
+        userId
+      }));
+      
+      // Handle WebSocket messages
+      ws.on('message', async (data) => {
+        try {
+          const message = JSON.parse(data.toString());
+          
+          // Handle different message types
+          if (message.type === 'ping') {
+            ws.send(JSON.stringify({ type: 'pong' }));
+          }
+        } catch (error) {
+          console.error('Error handling WebSocket message:', error);
+        }
+      });
+      
+      // Handle WebSocket closure
+      ws.on('close', () => {
+        console.log(`WebSocket connection closed for user ${userId}`);
+        clients.get(userId)?.delete(ws);
+        if (clients.get(userId)?.size === 0) {
+          clients.delete(userId);
+        }
+      });
+    });
+  });
+  
   return httpServer;
 }
