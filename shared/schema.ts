@@ -198,8 +198,6 @@ export const insertUserSchema = createInsertSchema(users)
     averageRating: true, 
     isVerified: true, 
     verificationToken: true, 
-    googleId: true, 
-    facebookId: true, 
     refreshToken: true, 
     createdAt: true,
     preferences: true
