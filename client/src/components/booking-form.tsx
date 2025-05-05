@@ -85,22 +85,37 @@ const BookingForm = ({ tutor, onSuccess, onCancel }: BookingFormProps) => {
 
   // Handle course selection and update form
   const handleCourseChange = (courseId: string) => {
+    // Check if courseId is our "no-courses" special value
+    if (courseId === "no-courses") {
+      return;
+    }
+    
     const numericId = parseInt(courseId);
+    
+    if (isNaN(numericId)) {
+      console.error("Invalid course ID:", courseId);
+      return;
+    }
+    
     const course = tutor.courses?.find(c => c.courseId === numericId);
+    
+    if (!course) {
+      console.error("Course not found for ID:", numericId);
+      return;
+    }
+    
     setSelectedCourse(course);
     form.setValue("courseId", numericId);
     
     // Track course selection
-    if (course) {
-      trackActivity('booking_course_selected', tutor.id, 'tutor', {
-        tutorName: tutor.fullName,
-        courseName: course.course.title,
-        courseCode: course.course.code,
-        department: course.course.department,
-        isPaid: course.isPaid || false,
-        hourlyRate: course.hourlyRate || 0
-      });
-    }
+    trackActivity('booking_course_selected', tutor.id, 'tutor', {
+      tutorName: tutor.fullName || 'Unknown',
+      courseName: course.course?.title || 'Unknown',
+      courseCode: course.course?.code || 'Unknown',
+      department: course.course?.department || 'Unknown',
+      isPaid: course.isPaid || false,
+      hourlyRate: course.hourlyRate || 0
+    });
   };
 
   // Create session mutation
@@ -199,15 +214,21 @@ const BookingForm = ({ tutor, onSuccess, onCancel }: BookingFormProps) => {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {tutor.courses?.map((course) => (
-                    <SelectItem 
-                      key={course.courseId} 
-                      value={course.courseId.toString()}
-                    >
-                      {course.course.title} ({course.course.code})
-                      {course.isPaid && ` - $${course.hourlyRate}/hr`}
+                  {!tutor.courses || tutor.courses.length === 0 ? (
+                    <SelectItem value="no-courses" disabled>
+                      No courses available for this tutor
                     </SelectItem>
-                  ))}
+                  ) : (
+                    tutor.courses.map((course) => (
+                      <SelectItem 
+                        key={course.courseId} 
+                        value={course.courseId.toString()}
+                      >
+                        {course.course?.title || 'Unknown'} ({course.course?.code || 'N/A'})
+                        {course.isPaid && ` - $${course.hourlyRate}/hr`}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -337,11 +358,20 @@ const BookingForm = ({ tutor, onSuccess, onCancel }: BookingFormProps) => {
           </div>
         )}
 
+        {(!tutor.courses || tutor.courses.length === 0) && (
+          <div className="p-4 bg-red-50 border border-red-100 rounded-lg text-red-600 text-sm">
+            <p>This tutor doesn't have any courses available yet. Please check back later or contact the tutor.</p>
+          </div>
+        )}
+
         <div className="flex justify-end space-x-3">
           <Button type="button" variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isPending}>
+          <Button 
+            type="submit" 
+            disabled={isPending || !tutor.courses || tutor.courses.length === 0 || !selectedCourse}
+          >
             {isPending ? "Requesting..." : "Request Session"}
             <Save className="ml-2 h-4 w-4" />
           </Button>

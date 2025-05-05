@@ -415,35 +415,13 @@ export class MemStorage implements IStorage {
   async getTutors(options?: { courseId?: number; department?: string; minGpa?: number; isPaid?: boolean }): Promise<UserWithDetails[]> {
     let tutors = Array.from(this.users.values()).filter(user => user.role === 'tutor');
     
-    // Apply filters if provided
-    if (options) {
-      if (options.department) {
-        tutors = tutors.filter(tutor => tutor.department === options.department);
-      }
-      
-      // For tutors, GPA is always shown
-      if (options.minGpa !== undefined) {
-        tutors = tutors.filter(tutor => tutor.gpa !== undefined && tutor.gpa >= options.minGpa);
-      }
-    }
-
+    // Don't filter initially - get all tutors with details first
+    
     // Enhance tutors with additional details
     const tutorsWithDetails: UserWithDetails[] = await Promise.all(
       tutors.map(async tutor => {
         const tutorCourses = await this.getTutorCourses(tutor.id);
-        
-        // Apply course filter if provided
-        if (options?.courseId) {
-          const hasCourse = tutorCourses.some(tc => tc.courseId === options.courseId);
-          if (!hasCourse) return null;
-        }
-        
-        // Apply paid filter if provided
-        if (options?.isPaid !== undefined) {
-          const hasPaidCourse = tutorCourses.some(tc => tc.isPaid === options.isPaid);
-          if (!hasPaidCourse) return null;
-        }
-        
+        const availability = await this.getAvailability(tutor.id);
         const reviews = await this.getTutorReviews(tutor.id);
         const averageRating = reviews.length 
           ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
@@ -452,14 +430,45 @@ export class MemStorage implements IStorage {
         return {
           ...tutor,
           courses: tutorCourses,
+          availability,
           averageRating,
           reviewCount: reviews.length
         };
       })
     );
     
-    // Filter out null values (from tutors that didn't match course or paid filters)
-    return tutorsWithDetails.filter(Boolean) as UserWithDetails[];
+    // Apply filters only if options are specified, otherwise return all tutors
+    if (!options || Object.keys(options).length === 0) {
+      console.log("Returning all tutors without filtering");
+      return tutorsWithDetails;
+    }
+    
+    // Apply filters after getting detailed info
+    return tutorsWithDetails.filter(tutor => {
+      // Apply department filter if specified
+      if (options.department && tutor.department !== options.department) {
+        return false;
+      }
+      
+      // Apply min GPA filter if specified
+      if (options.minGpa !== undefined && (!tutor.gpa || tutor.gpa < options.minGpa)) {
+        return false;
+      }
+      
+      // Apply course filter if specified
+      if (options.courseId !== undefined) {
+        const hasCourse = tutor.courses?.some(tc => tc.courseId === options.courseId);
+        if (!hasCourse) return false;
+      }
+      
+      // Apply paid filter if specified
+      if (options.isPaid !== undefined) {
+        const hasPaidCourse = tutor.courses?.some(tc => tc.isPaid === options.isPaid);
+        if (!hasPaidCourse) return false;
+      }
+      
+      return true;
+    });
   }
 
   async getTutorDetails(id: number): Promise<UserWithDetails | undefined> {
