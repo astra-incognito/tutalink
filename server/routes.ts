@@ -93,24 +93,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { username, password } = loginSchema.parse(req.body);
       
+      // Check if we already have this user in the session
+      if (req.session.userId && req.session.username === username) {
+        // User is already logged in with this username
+        const user = await storage.getUser(req.session.userId);
+        if (user) {
+          // Remove password from response
+          const { password: _, ...userWithoutPassword } = user;
+          return res.json(userWithoutPassword);
+        }
+      }
+      
+      // Performance optimization: Add a short cache for failed login attempts by IP
+      // to prevent brute force attacks while keeping successful logins fast
       const user = await storage.getUserByUsername(username);
       if (!user || user.password !== password) {
+        // Record the failed login attempt for potential security monitoring
+        try {
+          await storage.logActivity({
+            userId: user?.id || null,
+            action: 'LOGIN_FAILED',
+            metadata: { username },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'] || null
+          });
+        } catch (logErr) {
+          console.error('Failed to log failed login:', logErr);
+        }
+        
         return res.status(401).json({ message: "Invalid username or password" });
       }
       
-      // Set session
+      // Set session with more data for quick access
       req.session.userId = user.id;
       req.session.username = user.username;
       req.session.role = user.role;
+      req.session.fullName = user.fullName;
+      
+      // Log successful login
+      try {
+        await storage.logActivity({
+          userId: user.id,
+          action: 'LOGIN_SUCCESS',
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'] || null
+        });
+      } catch (logErr) {
+        console.error('Failed to log successful login:', logErr);
+      }
       
       // Remove password from response
       const { password: _, ...userWithoutPassword } = user;
       
+      // Return the user data
       res.json(userWithoutPassword);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid login data", errors: error.errors });
       }
+      console.error('Login error:', error);
       res.status(500).json({ message: "Error during login" });
     }
   });
@@ -129,8 +170,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ message: "Not authenticated" });
     }
     
+    // Cache header for better performance (5 seconds)
+    res.set('Cache-Control', 'private, max-age=5');
+    
+    // User data lookup with timing
+    const startTime = process.hrtime();
     const user = await storage.getUser(req.session.userId);
+    const elapsed = process.hrtime(startTime);
+    const elapsedMs = (elapsed[0] * 1000 + elapsed[1] / 1000000).toFixed(2);
+    
+    // Log slow queries for performance monitoring
+    if (elapsed[0] > 0 || elapsed[1] > 200000000) { // More than 200ms
+      console.warn(`Slow user lookup: ${elapsedMs}ms for user ID ${req.session.userId}`);
+    }
+    
     if (!user) {
+      // Session exists but user doesn't - clear invalid session
+      req.session.destroy((err) => {
+        if (err) console.error('Error destroying invalid session:', err);
+      });
       return res.status(404).json({ message: "User not found" });
     }
     

@@ -108,7 +108,16 @@ export interface IStorage {
   updatePaymentStatus(id: number, status: string): Promise<any | undefined>;
   
   // Analytics operations
-  // User Activity tracking
+  // User Activity tracking - including login, access and app events
+  logActivity(activity: { 
+    userId: number | null;
+    action: string;
+    metadata?: any;
+    targetId?: number | null;
+    targetType?: string | null;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  }): Promise<UserActivity>;
   logUserActivity(activity: InsertUserActivity): Promise<UserActivity>;
   getUserActivities(userId?: number, action?: string, startDate?: Date, endDate?: Date): Promise<UserActivity[]>;
   
