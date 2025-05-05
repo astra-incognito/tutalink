@@ -129,6 +129,11 @@ const Navbar = () => {
                           Dashboard
                         </DropdownMenuItem>
                       </Link>
+                      <Link href="/messages">
+                        <DropdownMenuItem className="cursor-pointer">
+                          Messages
+                        </DropdownMenuItem>
+                      </Link>
                       <Link href="/profile">
                         <DropdownMenuItem className="cursor-pointer">
                           Profile
@@ -197,17 +202,30 @@ const Navbar = () => {
               </span>
             </Link>
             {isAuthenticated && (
-              <Link href="/dashboard">
-                <span
-                  className={`block px-3 py-2 rounded-md text-base font-medium cursor-pointer ${
-                    location === "/dashboard"
-                      ? "bg-primary-50 border-primary text-primary-700"
-                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-                  }`}
-                >
-                  Dashboard
-                </span>
-              </Link>
+              <>
+                <Link href="/dashboard">
+                  <span
+                    className={`block px-3 py-2 rounded-md text-base font-medium cursor-pointer ${
+                      location === "/dashboard"
+                        ? "bg-primary-50 border-primary text-primary-700"
+                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                    }`}
+                  >
+                    Dashboard
+                  </span>
+                </Link>
+                <Link href="/messages">
+                  <span
+                    className={`block px-3 py-2 rounded-md text-base font-medium cursor-pointer ${
+                      location === "/messages"
+                        ? "bg-primary-50 border-primary text-primary-700"
+                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                    }`}
+                  >
+                    Messages
+                  </span>
+                </Link>
+              </>
             )}
           </div>
           {isAuthenticated ? (
@@ -237,6 +255,11 @@ const Navbar = () => {
                 <Link href="/profile">
                   <span className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 cursor-pointer">
                     Your Profile
+                  </span>
+                </Link>
+                <Link href="/messages">
+                  <span className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 cursor-pointer">
+                    Messages
                   </span>
                 </Link>
                 <button
