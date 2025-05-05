@@ -38,12 +38,12 @@ import {
 } from "lucide-react";
 import SessionCard from "@/components/session-card";
 import ReviewCard from "@/components/review-card";
-import { User as UserType, SessionWithDetails, ReviewWithDetails } from "@shared/schema";
+import { UserWithDetails, SessionWithDetails, ReviewWithDetails } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface TutorDashboardProps {
-  user: UserType;
+  user: UserWithDetails;
   refetchUser: () => void;
 }
 
@@ -202,7 +202,7 @@ const TutorDashboard = ({ user, refetchUser }: TutorDashboardProps) => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {user?.courses?.map((course) => (
+                {user?.courses?.map((course: TutorCourse & { course: Course }) => (
                   <div
                     key={course.id}
                     className="relative rounded-lg border border-gray-200 bg-white px-3 py-3 shadow-sm flex items-center justify-between hover:border-primary transition-colors group"

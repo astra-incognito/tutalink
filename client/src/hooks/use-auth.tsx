@@ -8,6 +8,8 @@ type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   error: Error | null;
+  isAuthenticated: boolean;
+  refetchUser: () => void;
   loginMutation: UseMutationResult<User, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
   registerMutation: UseMutationResult<User, Error, InsertUser>;
@@ -26,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     data: user,
     error,
     isLoading,
+    refetch: refetchUser,
   } = useQuery({
     queryKey: ["/api/auth/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
@@ -93,12 +96,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // Compute the isAuthenticated property
+  const isAuthenticated = !!user;
+
   return (
     <AuthContext.Provider
       value={{
         user: user ?? null,
         isLoading,
         error,
+        isAuthenticated,
+        refetchUser,
         loginMutation,
         logoutMutation,
         registerMutation,

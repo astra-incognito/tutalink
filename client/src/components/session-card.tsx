@@ -21,6 +21,7 @@ interface SessionCardProps {
 const SessionCard = ({ session, onStatusChange, showReviewButton = false }: SessionCardProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const getInitials = (name: string) => {
@@ -184,6 +185,19 @@ const SessionCard = ({ session, onStatusChange, showReviewButton = false }: Sess
               disabled={updateStatus.isPending}
             >
               Cancel
+            </Button>
+          )}
+          
+          {/* Review button for completed sessions that need reviews */}
+          {showReviewButton && session.status === "completed" && !session.review && !isTutor && (
+            <Button 
+              size="sm" 
+              variant="default"
+              className="bg-yellow-600 hover:bg-yellow-700"
+              onClick={() => navigate(`/review-session/${session.id}`)}
+            >
+              <Star className="mr-1 h-4 w-4" />
+              Leave Review
             </Button>
           )}
           
