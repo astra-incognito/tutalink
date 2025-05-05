@@ -10,7 +10,7 @@ import AppLoader from "@/components/ui/app-loader";
 
 const Register = () => {
   const [, navigate] = useLocation();
-  const { user, registerMutation } = useAuth();
+  const { user, registerMutation, isLoading } = useAuth();
   const [registrationStep, setRegistrationStep] = useState<"role" | "form">("role");
   const [selectedRole, setSelectedRole] = useState<"learner" | "tutor" | null>(null);
 
@@ -31,7 +31,7 @@ const Register = () => {
   };
   
   // Show loader while checking authentication
-  if (user === undefined) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
         <AppLoader size="md" text="Loading" />

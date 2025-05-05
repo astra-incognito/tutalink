@@ -22,8 +22,17 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const [, navigate] = useLocation();
-  const { user, loginMutation } = useAuth();
+  const { user, loginMutation, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+
+  // Show loader while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
 
   // Redirect if already authenticated
   if (user) {
