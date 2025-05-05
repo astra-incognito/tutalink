@@ -1,10 +1,11 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect, useState } from "react";
 import { AuthProvider } from "./hooks";
 import { ProtectedRoute } from "./lib/protected-route";
 import AppLoader from "@/components/ui/app-loader";
+import { trackPageView, setupErrorTracking } from "./lib/analytics";
 
 // Pages
 import Home from "@/pages/home";
@@ -19,9 +20,33 @@ import NotFound from "@/pages/not-found";
 import Navbar from "@/components/layout/navbar";
 import Footer from "@/components/layout/footer";
 
+// Route tracking component to monitor page views and navigation
+function RouteTracker() {
+  const [location] = useLocation();
+  
+  useEffect(() => {
+    // Track page view on each location change
+    trackPageView(location);
+    
+    // Record the start time for duration calculation
+    const startTime = Date.now();
+    
+    // Clean up function to calculate duration on route change/unmount
+    return () => {
+      const duration = Math.floor((Date.now() - startTime) / 1000); // Duration in seconds
+      if (duration > 1) { // Avoid tracking very short views (e.g., redirects)
+        trackPageView(location, duration);
+      }
+    };
+  }, [location]);
+  
+  return null;
+}
+
 function Router() {
   return (
     <div className="flex flex-col min-h-screen">
+      <RouteTracker />
       <Navbar />
       <main className="flex-grow">
         <Switch>
@@ -43,6 +68,9 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Initialize error tracking for unhandled exceptions
+    setupErrorTracking();
+    
     // Simulate app initialization time
     const timer = setTimeout(() => {
       setIsLoading(false);

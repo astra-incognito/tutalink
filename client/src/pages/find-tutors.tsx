@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,9 +17,11 @@ import DepartmentFilter from "@/components/department-filter";
 import PriceFilter from "@/components/price-filter";
 import { UserWithDetails, Course } from "@shared/schema";
 import useAuth from "@/hooks/use-auth";
+import { useAnalytics } from "@/hooks/use-analytics";
 
 const FindTutors = () => {
   const { isAuthenticated } = useAuth();
+  const { trackSearchQuery, trackActivity } = useAnalytics();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
@@ -55,8 +57,21 @@ const FindTutors = () => {
   // Apply filters and refetch data
   useEffect(() => {
     refetch();
-  }, [selectedCourse, selectedDepartment, isPaidOnly, minGpa, refetch]);
+    
+    // Track filter changes for analytics
+    if (selectedCourse || selectedDepartment || isPaidOnly !== null || minGpa !== null) {
+      trackActivity('apply_filters', null, 'tutor_search', {
+        courseId: selectedCourse,
+        department: selectedDepartment,
+        isPaidOnly,
+        minGpa
+      });
+    }
+  }, [selectedCourse, selectedDepartment, isPaidOnly, minGpa, refetch, trackActivity]);
 
+  // Search term tracking
+  const [lastSearchTerm, setLastSearchTerm] = useState("");
+  
   // Filter by search term
   const filteredTutors = tutors.filter(tutor => {
     if (!searchTerm) return true;
@@ -71,6 +86,20 @@ const FindTutors = () => {
     
     return fullNameMatch || departmentMatch || courseMatch;
   });
+  
+  // Track search term changes and result counts
+  useEffect(() => {
+    // Only track if the search term has actually changed and is not empty
+    if (searchTerm && searchTerm !== lastSearchTerm) {
+      trackSearchQuery(searchTerm, filteredTutors.length, {
+        courseId: selectedCourse,
+        department: selectedDepartment,
+        isPaidOnly,
+        minGpa
+      });
+      setLastSearchTerm(searchTerm);
+    }
+  }, [searchTerm, filteredTutors.length, trackSearchQuery, selectedCourse, selectedDepartment, isPaidOnly, minGpa, lastSearchTerm]);
 
   const handleResetFilters = () => {
     setSelectedCourse(null);
