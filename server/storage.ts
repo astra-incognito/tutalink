@@ -25,6 +25,14 @@ import {
   InsertSearchAnalytic,
   ErrorLog,
   InsertErrorLog,
+  Conversation,
+  InsertConversation,
+  ConversationParticipant,
+  InsertConversationParticipant,
+  Message,
+  InsertMessage,
+  ConversationWithParticipants,
+  MessageWithSender,
   users,
   courses,
   tutorCourses,
@@ -35,7 +43,10 @@ import {
   analyticsMetrics,
   pageViews,
   searchAnalytics,
-  errorLogs
+  errorLogs,
+  conversations,
+  conversationParticipants,
+  messages
 } from "@shared/schema";
 
 // We'll import DatabaseStorage at the end of the file to avoid circular dependencies
@@ -117,6 +128,34 @@ export interface IStorage {
   // Error logging
   logError(error: InsertErrorLog): Promise<ErrorLog>;
   getErrors(errorType?: string, startDate?: Date, endDate?: Date): Promise<ErrorLog[]>;
+  
+  // Messaging operations
+  // Conversations
+  getConversation(id: number): Promise<Conversation | undefined>;
+  getConversationWithDetails(id: number): Promise<ConversationWithParticipants | undefined>;
+  getUserConversations(userId: number): Promise<ConversationWithParticipants[]>;
+  createConversation(conversation: InsertConversation): Promise<Conversation>;
+  updateConversation(id: number, data: Partial<Conversation>): Promise<Conversation | undefined>;
+  
+  // Participants
+  addParticipantToConversation(participant: InsertConversationParticipant): Promise<ConversationParticipant>;
+  getConversationParticipants(conversationId: number): Promise<(ConversationParticipant & { user: User })[]>;
+  updateParticipantLastRead(conversationId: number, userId: number): Promise<ConversationParticipant | undefined>;
+  removeParticipantFromConversation(conversationId: number, userId: number): Promise<boolean>;
+  
+  // Messages
+  getMessage(id: number): Promise<Message | undefined>;
+  getConversationMessages(conversationId: number, limit?: number, offset?: number): Promise<MessageWithSender[]>;
+  createMessage(message: InsertMessage): Promise<Message>;
+  deleteMessage(id: number): Promise<boolean>;
+  getUnreadMessageCount(conversationId: number, userId: number): Promise<number>;
+  
+  // Find or create conversation between users
+  findOrCreateConversationBetweenUsers(userIds: number[]): Promise<Conversation>;
+  
+  // Session-related conversations
+  getSessionConversation(sessionId: number): Promise<ConversationWithParticipants | undefined>;
+  createSessionConversation(sessionId: number, participantIds: number[]): Promise<Conversation>;
 }
 
 export class MemStorage implements IStorage {
@@ -137,6 +176,11 @@ export class MemStorage implements IStorage {
   private errorLogs: Map<number, ErrorLog>;
   private idCounters: { [key: string]: number };
 
+  // Messaging collections
+  private conversations: Map<number, Conversation>;
+  private conversationParticipants: Map<string, ConversationParticipant>; // key: `${conversationId}-${userId}`
+  private messages: Map<number, Message>;
+
   constructor() {
     this.users = new Map();
     this.courses = new Map();
@@ -154,6 +198,11 @@ export class MemStorage implements IStorage {
     this.searchAnalytics = new Map();
     this.errorLogs = new Map();
     
+    // Initialize messaging collections
+    this.conversations = new Map();
+    this.conversationParticipants = new Map();
+    this.messages = new Map();
+    
     this.idCounters = {
       users: 1,
       courses: 1,
@@ -168,6 +217,8 @@ export class MemStorage implements IStorage {
       pageViews: 1,
       searchAnalytics: 1,
       errorLogs: 1,
+      conversations: 1,
+      messages: 1,
     };
     
     // Create a memory store for sessions - using a simple in-memory implementation

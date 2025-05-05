@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, json, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, json, date, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -156,6 +156,41 @@ export const errorLogs = pgTable("error_logs", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Messaging system tables
+export const conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  title: text("title"), // Optional title (e.g., for group conversations or better organization)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  lastMessageAt: timestamp("last_message_at"),
+  sessionId: integer("session_id").references(() => sessions.id), // Optional link to a session (for session-related conversations)
+});
+
+export const conversationParticipants = pgTable("conversation_participants", {
+  conversationId: integer("conversation_id").notNull().references(() => conversations.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  lastReadAt: timestamp("last_read_at"), // Track when user last read the conversation
+  isActive: boolean("is_active").notNull().default(true), // Allow users to leave a conversation
+  role: text("role").notNull().default('member'), // 'member', 'admin' (for group chats)
+}, (table) => {
+  return {
+    pk: primaryKey({ columns: [table.conversationId, table.userId] }),
+  };
+});
+
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").notNull().references(() => conversations.id),
+  senderId: integer("sender_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  contentType: text("content_type").notNull().default('text'), // 'text', 'image', 'file', etc.
+  attachment: text("attachment"), // URL to attachment if any
+  isDeleted: boolean("is_deleted").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users)
   .omit({ 
@@ -205,6 +240,16 @@ export const insertSearchAnalyticsSchema = createInsertSchema(searchAnalytics)
 
 export const insertErrorLogSchema = createInsertSchema(errorLogs)
   .omit({ id: true, createdAt: true });
+
+// Messaging schema
+export const insertConversationSchema = createInsertSchema(conversations)
+  .omit({ id: true, createdAt: true, updatedAt: true, lastMessageAt: true });
+
+export const insertConversationParticipantSchema = createInsertSchema(conversationParticipants)
+  .omit({ joinedAt: true, lastReadAt: true });
+
+export const insertMessageSchema = createInsertSchema(messages)
+  .omit({ id: true, createdAt: true, updatedAt: true });
 
 // Custom Zod schemas for frontend validation
 export const registerSchema = z.object({
@@ -277,4 +322,23 @@ export type ReviewWithDetails = Review & {
   tutor: User;
   session: Session;
   course: Course;
+};
+
+// Messaging types
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+export type ConversationParticipant = typeof conversationParticipants.$inferSelect;
+export type InsertConversationParticipant = z.infer<typeof insertConversationParticipantSchema>;
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+// Detailed messaging types
+export type ConversationWithParticipants = Conversation & {
+  participants: (ConversationParticipant & { user: User })[];
+  lastMessage?: Message;
+  unreadCount?: number;
+};
+
+export type MessageWithSender = Message & {
+  sender: User;
 };
