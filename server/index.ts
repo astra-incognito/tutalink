@@ -5,6 +5,7 @@ import { setupAuth } from "./auth";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import { sql } from "drizzle-orm";
+import { storage } from "./storage";
 
 // Function to initialize database on first run
 async function initializeDatabase() {
@@ -241,6 +242,9 @@ app.use((req, res, next) => {
   try {
     await initializeDatabase();
     console.log("Database initialized successfully");
+    
+    // Ensure the admin user is initialized in memory storage
+    await storage.initialized();
   } catch (err) {
     console.error("Failed to initialize database:", err);
   }

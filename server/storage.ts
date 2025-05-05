@@ -211,6 +211,9 @@ export class MemStorage implements IStorage {
   
   // Site settings
   private siteSettings: Map<string, SiteSetting>;
+  
+  // Admin initialization promise
+  private _initAdminPromise: Promise<void>;
 
   constructor() {
     this.users = new Map();
@@ -262,38 +265,66 @@ export class MemStorage implements IStorage {
     // Add some initial courses
     this.initializeCourses();
     
-    // Add default admin user
-    this.initializeAdminUser();
+    // Initialize the admin user
+    this._initAdminPromise = this.initializeAdminUser();
   }
   
-  private initializeAdminUser() {
-    // Check if admin user already exists
-    const adminExists = Array.from(this.users.values()).some(
-      user => user.username === 'admin123'
-    );
-    
-    if (!adminExists) {
-      console.log("Creating admin user in memory storage");
-      this.createUser({
-        username: 'admin123',
-        password: 'admin@123',
-        fullName: 'System Administrator',
-        email: 'admin@tutalink.com',
-        department: 'Administration',
-        yearOfStudy: 0,
-        role: 'admin',
-        gpa: null,
-        showGPA: null,
-        bio: 'System Administrator Account',
-        isVerified: true,
-        verificationToken: null,
-        googleId: null,
-        facebookId: null,
-        refreshToken: null,
-        preferences: null,
-        profileImage: null
-      });
-      console.log("Admin user created in memory storage");
+  // This method is used to ensure the admin user is initialized before using the storage
+  async initialized() {
+    await this._initAdminPromise;
+    return this;
+  }
+  
+  private async initializeAdminUser() {
+    try {
+      // Check if admin user already exists
+      const adminExists = Array.from(this.users.values()).some(
+        user => user.username === 'admin123'
+      );
+      
+      if (!adminExists) {
+        console.log("Creating admin user in memory storage");
+        
+        // Import hashPassword function
+        const { hashPassword } = await import('./auth');
+        
+        // Hash the admin password properly
+        const hashedPassword = await hashPassword('admin@123');
+        
+        // Create admin user with hashed password
+        const id = this.idCounters.users++;
+        const now = new Date();
+        
+        const adminUser: User = {
+          id,
+          username: 'admin123',
+          password: hashedPassword,
+          fullName: 'System Administrator',
+          email: 'admin@tutalink.com',
+          department: 'Administration',
+          yearOfStudy: 0,
+          role: 'admin',
+          gpa: null,
+          showGPA: null,
+          bio: 'System Administrator Account',
+          isVerified: true,
+          verificationToken: null,
+          googleId: null,
+          facebookId: null,
+          refreshToken: null,
+          preferences: null,
+          profileImage: null,
+          createdAt: now,
+          averageRating: 0
+        };
+        
+        // Add directly to map to bypass the createUser method which would double-hash
+        this.users.set(id, adminUser);
+        
+        console.log("Admin user created in memory storage");
+      }
+    } catch (error) {
+      console.error("Error creating admin user:", error);
     }
   }
 
