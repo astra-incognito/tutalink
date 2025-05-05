@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { 
@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import BookingForm from "@/components/booking-form";
 import ReviewCard from "@/components/review-card";
 import useAuth from "@/hooks/use-auth";
+import { useAnalytics } from "@/hooks/use-analytics";
 import { format } from "date-fns";
 import { Link } from "wouter";
 import { UserWithDetails, ReviewWithDetails } from "@shared/schema";
@@ -34,6 +35,7 @@ const TutorProfile = () => {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const { user, isAuthenticated } = useAuth();
+  const { trackActivity } = useAnalytics();
   const [showBookingForm, setShowBookingForm] = useState(false);
   const numericId = parseInt(id);
 
@@ -46,6 +48,21 @@ const TutorProfile = () => {
     queryKey: [`/api/tutors/${id}`],
     enabled: !isNaN(numericId),
   });
+  
+  // Track full profile view
+  useEffect(() => {
+    if (tutor && !isLoadingTutor) {
+      trackActivity('view_full_profile', tutor.id, 'tutor', {
+        tutorName: tutor.fullName,
+        department: tutor.department,
+        yearOfStudy: tutor.yearOfStudy,
+        hasReviews: (tutor.reviewCount || 0) > 0,
+        rating: tutor.averageRating || 0,
+        hasPaidCourses: tutor.courses?.some(c => c.isPaid) || false,
+        courseCount: tutor.courses?.length || 0
+      });
+    }
+  }, [tutor, isLoadingTutor, trackActivity]);
 
   // Fetch tutor reviews
   const {
@@ -115,6 +132,10 @@ const TutorProfile = () => {
   // Handle booking button click
   const handleBookSession = () => {
     if (!isAuthenticated) {
+      trackActivity('booking_auth_redirect', tutor.id, 'tutor', { 
+        tutorName: tutor.fullName,
+        department: tutor.department
+      });
       navigate("/login");
       return;
     }
@@ -123,6 +144,14 @@ const TutorProfile = () => {
     if (user?.id === tutor.id) {
       return;
     }
+    
+    // Track booking initiation
+    trackActivity('initiate_booking', tutor.id, 'tutor', {
+      tutorName: tutor.fullName,
+      department: tutor.department,
+      isPaid: tutor.courses?.some(c => c.isPaid) || false,
+      hasCourseMatch: user?.department === tutor.department
+    });
     
     setShowBookingForm(true);
   };

@@ -5,12 +5,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Star, Clock, DollarSign, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserWithDetails } from "@shared/schema";
+import { useAnalytics } from "@/hooks/use-analytics";
 
 interface TutorCardProps {
   tutor: UserWithDetails;
 }
 
 const TutorCard = ({ tutor }: TutorCardProps) => {
+  const { trackActivity, trackSearchQuery } = useAnalytics();
+  
   // Calculate first letter of first and last name for avatar fallback
   const getInitials = (name: string) => {
     return name
@@ -25,6 +28,17 @@ const TutorCard = ({ tutor }: TutorCardProps) => {
 
   // Get all courses taught by the tutor
   const courses = tutor.courses || [];
+  
+  // Track tutor profile views
+  const handleProfileClick = () => {
+    trackActivity('view_tutor_profile', tutor.id, 'tutor', {
+      tutorName: tutor.fullName,
+      department: tutor.department,
+      courseCount: courses.length,
+      hasAvailability: isAvailableNow,
+      rating: tutor.averageRating
+    });
+  };
 
   return (
     <Card className="bg-white shadow rounded-lg overflow-hidden hover:shadow-md transition-shadow">
@@ -106,7 +120,7 @@ const TutorCard = ({ tutor }: TutorCardProps) => {
             ></span>
             {isAvailableNow ? "Available now" : "Not available"}
           </Badge>
-          <Link href={`/tutors/${tutor.id}`}>
+          <Link href={`/tutors/${tutor.id}`} onClick={handleProfileClick}>
             <Button size="sm">View Profile</Button>
           </Link>
         </div>
