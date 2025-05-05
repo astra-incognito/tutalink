@@ -109,7 +109,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Performance optimization: Add a short cache for failed login attempts by IP
       // to prevent brute force attacks while keeping successful logins fast
       const user = await storage.getUserByUsername(username);
-      if (!user || user.password !== password) {
+      
+      // Import comparePasswords function from auth.ts
+      const { comparePasswords } = await import('./auth');
+      
+      // Check if user exists and password is correct using our secure comparison function
+      const isPasswordValid = user ? await comparePasswords(password, user.password) : false;
+      
+      if (!user || !isPasswordValid) {
         // Record the failed login attempt for potential security monitoring
         try {
           await storage.logActivity({
