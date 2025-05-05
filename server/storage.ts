@@ -1,3 +1,4 @@
+import session from "express-session";
 import {
   User,
   InsertUser,
@@ -22,12 +23,21 @@ import {
   reviews
 } from "@shared/schema";
 
+// We'll import DatabaseStorage at the end of the file to avoid circular dependencies
+
 export interface IStorage {
+  // Session store for express-session
+  sessionStore: session.Store;
+  
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByVerificationToken(token: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, data: Partial<User>): Promise<User | undefined>;
+  verifyUser(id: number): Promise<User | undefined>;
+  updateRefreshToken(id: number, token: string): Promise<User | undefined>;
   getTutors(options?: { courseId?: number; department?: string; minGpa?: number; isPaid?: boolean }): Promise<UserWithDetails[]>;
   getTutorDetails(id: number): Promise<UserWithDetails | undefined>;
 
@@ -59,15 +69,29 @@ export interface IStorage {
   getReview(id: number): Promise<Review | undefined>;
   createReview(review: InsertReview): Promise<Review>;
   getTutorReviews(tutorId: number): Promise<ReviewWithDetails[]>;
+  
+  // Notification operations
+  getUserNotifications(userId: number): Promise<any[]>;
+  createNotification(notification: any): Promise<any>;
+  markNotificationAsRead(id: number): Promise<boolean>;
+  deleteNotification(id: number): Promise<boolean>;
+  
+  // Payment operations
+  createPayment(payment: any): Promise<any>;
+  getSessionPayment(sessionId: number): Promise<any | undefined>;
+  updatePaymentStatus(id: number, status: string): Promise<any | undefined>;
 }
 
 export class MemStorage implements IStorage {
+  sessionStore: session.Store;
   private users: Map<number, User>;
   private courses: Map<number, Course>;
   private tutorCourses: Map<number, TutorCourse>;
   private availabilities: Map<number, Availability>;
   private sessions: Map<number, Session>;
   private reviews: Map<number, Review>;
+  private notifications: Map<number, any>;
+  private payments: Map<number, any>;
   private idCounters: { [key: string]: number };
 
   constructor() {
@@ -77,6 +101,8 @@ export class MemStorage implements IStorage {
     this.availabilities = new Map();
     this.sessions = new Map();
     this.reviews = new Map();
+    this.notifications = new Map();
+    this.payments = new Map();
     this.idCounters = {
       users: 1,
       courses: 1,
@@ -84,7 +110,12 @@ export class MemStorage implements IStorage {
       availabilities: 1,
       sessions: 1,
       reviews: 1,
+      notifications: 1,
+      payments: 1,
     };
+    
+    // Create a memory store for sessions - using a simple in-memory implementation
+    this.sessionStore = new session.MemoryStore();
 
     // Add some initial courses
     this.initializeCourses();
@@ -118,10 +149,48 @@ export class MemStorage implements IStorage {
       (user) => user.username === username
     );
   }
+  
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.email === email
+    );
+  }
+  
+  async getUserByVerificationToken(token: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.verificationToken === token
+    );
+  }
+  
+  async verifyUser(id: number): Promise<User | undefined> {
+    const user = await this.getUser(id);
+    if (!user) return undefined;
+    
+    return this.updateUser(id, { 
+      isVerified: true, 
+      verificationToken: null 
+    });
+  }
+  
+  async updateRefreshToken(id: number, token: string): Promise<User | undefined> {
+    return this.updateUser(id, { refreshToken: token });
+  }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.idCounters.users++;
-    const user: User = { ...insertUser, id };
+    const now = new Date();
+    const user: User = { 
+      ...insertUser, 
+      id,
+      createdAt: now,
+      averageRating: 0,
+      isVerified: false,
+      verificationToken: null,
+      googleId: null,
+      facebookId: null,
+      refreshToken: null,
+      preferences: null,
+    };
     this.users.set(id, user);
     return user;
   }
@@ -389,6 +458,57 @@ export class MemStorage implements IStorage {
     
     return reviewsWithDetails;
   }
+
+  // Notification operations
+  async getUserNotifications(userId: number): Promise<any[]> {
+    return Array.from(this.notifications.values()).filter(
+      notification => notification.userId === userId
+    );
+  }
+
+  async createNotification(notification: any): Promise<any> {
+    const id = this.idCounters.notifications++;
+    const newNotification = { ...notification, id };
+    this.notifications.set(id, newNotification);
+    return newNotification;
+  }
+
+  async markNotificationAsRead(id: number): Promise<boolean> {
+    const notification = this.notifications.get(id);
+    if (!notification) return false;
+    
+    notification.isRead = true;
+    this.notifications.set(id, notification);
+    return true;
+  }
+
+  async deleteNotification(id: number): Promise<boolean> {
+    return this.notifications.delete(id);
+  }
+
+  // Payment operations
+  async createPayment(payment: any): Promise<any> {
+    const id = this.idCounters.payments++;
+    const newPayment = { ...payment, id };
+    this.payments.set(id, newPayment);
+    return newPayment;
+  }
+
+  async getSessionPayment(sessionId: number): Promise<any | undefined> {
+    return Array.from(this.payments.values()).find(
+      payment => payment.sessionId === sessionId
+    );
+  }
+
+  async updatePaymentStatus(id: number, status: string): Promise<any | undefined> {
+    const payment = this.payments.get(id);
+    if (!payment) return undefined;
+    
+    const updatedPayment = { ...payment, status };
+    this.payments.set(id, updatedPayment);
+    return updatedPayment;
+  }
 }
 
+// For now, use in-memory storage until we fix the database implementation
 export const storage = new MemStorage();
