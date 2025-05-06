@@ -588,6 +588,7 @@ const TutorDashboard = ({ user, refetchUser }: TutorDashboardProps) => {
         isOpen={isEditProfileOpen}
         onClose={() => setIsEditProfileOpen(false)}
         user={user}
+        refetchUser={refetchUser}
       />
       
       <AddCourseDialog

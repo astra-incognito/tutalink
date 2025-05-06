@@ -23,6 +23,7 @@ interface EditProfileDialogProps {
   isOpen: boolean;
   onClose: () => void;
   user: User;
+  refetchUser: () => void;
 }
 
 interface ProfileUpdate {
@@ -36,7 +37,7 @@ interface ProfileUpdate {
   profileImage?: string | null;
 }
 
-const EditProfileDialog = ({ isOpen, onClose, user }: EditProfileDialogProps) => {
+const EditProfileDialog = ({ isOpen, onClose, user, refetchUser }: EditProfileDialogProps) => {
   const { toast } = useToast();
   const [fullName, setFullName] = useState(user.fullName);
   const [email, setEmail] = useState(user.email);
@@ -77,12 +78,11 @@ const EditProfileDialog = ({ isOpen, onClose, user }: EditProfileDialogProps) =>
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       queryClient.invalidateQueries({ queryKey: [`/api/users/${user.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/tutors/${user.id}`] });
-      
+      refetchUser();
       toast({
         title: "Profile updated successfully",
         description: "Your profile information has been updated.",
       });
-      
       onClose();
     },
     onError: (error: Error) => {

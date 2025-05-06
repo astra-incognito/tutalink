@@ -91,6 +91,7 @@ const LearnerDashboard = ({ user, refetchUser }: LearnerDashboardProps) => {
         isOpen={isEditProfileOpen}
         onClose={() => setIsEditProfileOpen(false)}
         user={user}
+        refetchUser={refetchUser}
       />
       
       {/* Dashboard Header */}
