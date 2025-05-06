@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import EditProfileDialog from "@/components/dialogs/edit-profile-dialog";
 import { useLocation } from "wouter";
 import {
@@ -41,6 +41,8 @@ import SessionCard from "@/components/session-card";
 import { User, SessionWithDetails } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { queryClient } from "@/lib/queryClient";
+import useAuth from "@/hooks/use-auth";
 
 interface LearnerDashboardProps {
   user: User;
@@ -83,6 +85,64 @@ const LearnerDashboard = ({ user, refetchUser }: LearnerDashboardProps) => {
   const needsReviewSessions = sessions.filter(s => 
     s.status === "completed" && !s.review
   );
+
+  type AddAvailabilityInput = {
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+  };
+
+  const addAvailabilityFn = async (data: AddAvailabilityInput) => {
+    const res = await fetch("/api/tutor/availability", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error("Failed to add availability");
+    return res.json();
+  };
+
+  const { mutateAsync: addAvailability, isLoading } = useMutation({
+    mutationFn: addAvailabilityFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tutor/availability"] });
+      // Optionally: refetchUser();
+    },
+  });
+
+  const { logoutMutation } = useAuth();
+
+  const handleLogout = async () => {
+    await logoutMutation.mutateAsync();
+    navigate("/login"); // Redirect to login page
+  };
+
+  type AddCourseInput = {
+    courseId: number;
+    isPaid: boolean;
+    hourlyRate?: number;
+  };
+
+  const addCourseFn = async (data: AddCourseInput) => {
+    const res = await fetch("/api/tutor/courses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error("Failed to add course");
+    return res.json();
+  };
+
+  const { mutateAsync: addCourse, isLoading } = useMutation({
+    mutationFn: addCourseFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tutor/courses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tutors"] });
+      refetchUser();
+    },
+  });
 
   return (
     <>
