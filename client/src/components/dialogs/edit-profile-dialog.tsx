@@ -84,7 +84,6 @@ const EditProfileDialog = ({ isOpen, onClose, user }: EditProfileDialogProps) =>
       toast({
         title: "Failed to update profile",
         description: error.message,
-        variant: "destructive",
       });
     },
   });
@@ -95,7 +94,6 @@ const EditProfileDialog = ({ isOpen, onClose, user }: EditProfileDialogProps) =>
       toast({
         title: "Missing required fields",
         description: "Please fill in all required fields.",
-        variant: "destructive",
       });
       return;
     }
@@ -106,7 +104,6 @@ const EditProfileDialog = ({ isOpen, onClose, user }: EditProfileDialogProps) =>
       toast({
         title: "Invalid email",
         description: "Please enter a valid email address.",
-        variant: "destructive",
       });
       return;
     }
@@ -116,7 +113,6 @@ const EditProfileDialog = ({ isOpen, onClose, user }: EditProfileDialogProps) =>
       toast({
         title: "Invalid GPA",
         description: "GPA must be between 0 and 4.",
-        variant: "destructive",
       });
       return;
     }
@@ -138,7 +134,7 @@ const EditProfileDialog = ({ isOpen, onClose, user }: EditProfileDialogProps) =>
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
           <DialogDescription>
@@ -146,7 +142,7 @@ const EditProfileDialog = ({ isOpen, onClose, user }: EditProfileDialogProps) =>
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4 overflow-y-auto flex-1">
           {/* Full Name */}
           <div className="grid gap-2">
             <Label htmlFor="full-name" className="required">Full Name</Label>
@@ -249,7 +245,7 @@ const EditProfileDialog = ({ isOpen, onClose, user }: EditProfileDialogProps) =>
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0 bg-white pt-4">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
