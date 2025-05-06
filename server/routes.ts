@@ -5,6 +5,7 @@ import session from 'express-session';
 import MemoryStore from 'memorystore';
 import { z } from "zod";
 import { WebSocketServer, WebSocket } from 'ws';
+import { pool } from "./db";
 import { 
   insertUserSchema, 
   loginSchema, 
