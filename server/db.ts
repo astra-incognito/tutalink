@@ -25,17 +25,25 @@ export const db = drizzle(pool, {
   schema,
   logger: shouldLogQueries ? {
     logQuery: (query, params) => {
-      console.log('Query:', query);
-      if (params) console.log('Params:', params);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Query:', query);
+      }
+      if (params && process.env.NODE_ENV !== 'production') {
+        console.log('Params:', params);
+      }
     },
   } : undefined,
 });
 
 // Setup graceful shutdown handling for the database pool
 process.on('SIGINT', () => {
-  console.log('Gracefully shutting down...');
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('Gracefully shutting down...');
+  }
   pool.end().then(() => {
-    console.log('Database pool closed successfully');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Database pool closed successfully');
+    }
     process.exit(0);
   }).catch(err => {
     console.error('Error closing database pool:', err);

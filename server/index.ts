@@ -10,12 +10,16 @@ import { storage } from "./storage";
 // Function to initialize database on first run
 async function initializeDatabase() {
   try {
-    console.log("Checking database connection and running migrations if needed...");
+    if (process.env.NODE_ENV !== 'production') {
+      console.log("Checking database connection and running migrations if needed...");
+    }
     
     // Push schema to database
     const { users, courses, tutorCourses, availability, sessions, reviews, notifications, payments } = schema;
     
-    console.log("Setting up database schema...");
+    if (process.env.NODE_ENV !== 'production') {
+      console.log("Setting up database schema...");
+    }
     
     // Check if users table exists
     try {
@@ -29,7 +33,9 @@ async function initializeDatabase() {
       const tablesExist = result.rows?.[0]?.exists === true;
       
       if (!tablesExist) {
-        console.log("Creating database tables...");
+        if (process.env.NODE_ENV !== 'production') {
+          console.log("Creating database tables...");
+        }
         
         // Create users table
         await db.execute(sql`
@@ -169,7 +175,9 @@ async function initializeDatabase() {
         `);
         
         if (adminUser.rows.length === 0) {
-          console.log("Creating admin user...");
+          if (process.env.NODE_ENV !== 'production') {
+            console.log("Creating admin user...");
+          }
           const hashedPassword = await hashPassword('admin@123');
           await db.execute(sql`
             INSERT INTO users (
@@ -181,20 +189,30 @@ async function initializeDatabase() {
               'System Administrator Account', TRUE
             )
           `);
-          console.log("Admin user created successfully");
+          if (process.env.NODE_ENV !== 'production') {
+            console.log("Admin user created successfully");
+          }
         } else {
-          console.log("Admin user already exists");
+          if (process.env.NODE_ENV !== 'production') {
+            console.log("Admin user already exists");
+          }
         }
         
-        console.log("Database schema created successfully");
+        if (process.env.NODE_ENV !== 'production') {
+          console.log("Database schema created successfully");
+        }
       } else {
-        console.log("Database tables already exist, skipping creation");
+        if (process.env.NODE_ENV !== 'production') {
+          console.log("Database tables already exist, skipping creation");
+        }
       }
     } catch (error) {
       console.error("Error checking/creating database tables:", error);
     }
     
-    console.log("Database initialization complete");
+    if (process.env.NODE_ENV !== 'production') {
+      console.log("Database initialization complete");
+    }
   } catch (error) {
     console.error("Database initialization error:", error);
   }
@@ -263,8 +281,9 @@ app.use((req, res, next) => {
   // Initialize database in all environments to ensure admin user exists
   try {
     await initializeDatabase();
-    console.log("Database initialized successfully");
-    
+    if (process.env.NODE_ENV !== 'production') {
+      console.log("Database initialized successfully");
+    }
     // Ensure the admin user is initialized in memory storage
     await storage.initialized();
   } catch (err) {
@@ -314,6 +333,8 @@ app.use((req, res, next) => {
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    if (process.env.NODE_ENV !== 'production') {
+      log(`serving on port ${port}`);
+    }
   });
 })();

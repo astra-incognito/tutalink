@@ -283,7 +283,9 @@ export class MemStorage implements IStorage {
       );
       
       if (!adminExists) {
-        console.log("Creating admin user in memory storage");
+        if (process.env.NODE_ENV !== 'production') {
+          console.log("Creating admin user in memory storage");
+        }
         
         // Import hashPassword function
         const { hashPassword } = await import('./auth');
@@ -321,7 +323,9 @@ export class MemStorage implements IStorage {
         // Add directly to map to bypass the createUser method which would double-hash
         this.users.set(id, adminUser);
         
-        console.log("Admin user created in memory storage");
+        if (process.env.NODE_ENV !== 'production') {
+          console.log("Admin user created in memory storage");
+        }
       }
     } catch (error) {
       console.error("Error creating admin user:", error);
@@ -384,6 +388,10 @@ export class MemStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
+    // Ensure password is hashed (contains a dot)
+    if (!insertUser.password.includes('.')) {
+      throw new Error("Password must be hashed before storing in memory.");
+    }
     const id = this.idCounters.users++;
     const now = new Date();
     const user: User = { 
@@ -439,7 +447,9 @@ export class MemStorage implements IStorage {
     
     // Apply filters only if options are specified, otherwise return all tutors
     if (!options || Object.keys(options).length === 0) {
-      console.log("Returning all tutors without filtering");
+      if (process.env.NODE_ENV !== 'production') {
+        console.log("Returning all tutors without filtering");
+      }
       return tutorsWithDetails;
     }
     

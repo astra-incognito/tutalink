@@ -90,7 +90,9 @@ export function useMessaging() {
         const ws = new WebSocket(wsUrl);
         
         ws.onopen = () => {
-          console.log('WebSocket connected');
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('WebSocket connected');
+          }
           setIsConnected(true);
           
           // Clear any reconnect timeout
@@ -114,7 +116,9 @@ export function useMessaging() {
             const data: WebSocketMessage = JSON.parse(event.data);
             
             if (data.type === 'connection' && data.status === 'connected') {
-              console.log('Connected with user ID:', data.userId);
+              if (process.env.NODE_ENV !== 'production') {
+                console.log('Connected with user ID:', data.userId);
+              }
             }
             else if (data.type === 'message' && data.message && data.conversationId) {
               // New message received, update the cache
@@ -136,8 +140,9 @@ export function useMessaging() {
               }
             }
             else if (data.type === 'pong') {
-              // Server responded to our ping
-              console.log('WebSocket connection is active');
+              if (process.env.NODE_ENV !== 'production') {
+                console.log('WebSocket connection is active');
+              }
             }
           } catch (error) {
             console.error('Error parsing WebSocket message:', error);
@@ -154,14 +159,18 @@ export function useMessaging() {
         };
         
         ws.onclose = () => {
-          console.log('WebSocket connection closed');
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('WebSocket connection closed');
+          }
           setIsConnected(false);
           
           // Try to reconnect after a delay
           if (!reconnectTimeout.current) {
             reconnectTimeout.current = setTimeout(() => {
               reconnectTimeout.current = null;
-              console.log('Attempting to reconnect WebSocket...');
+              if (process.env.NODE_ENV !== 'production') {
+                console.log('Attempting to reconnect WebSocket...');
+              }
               connectWebSocket();
             }, 5000); // Retry after 5 seconds
           }

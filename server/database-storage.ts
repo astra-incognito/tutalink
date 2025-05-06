@@ -64,6 +64,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
+    // Ensure password is hashed (contains a dot)
+    if (!insertUser.password.includes('.')) {
+      throw new Error("Password must be hashed before storing in the database.");
+    }
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }

@@ -72,6 +72,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userData.showGPA = userData.showGPA || false;
       }
 
+      const { hashPassword } = await import('./auth');
+      userData.password = await hashPassword(userData.password);
+
       const user = await storage.createUser(userData);
       
       // Remove password from response
@@ -1416,7 +1419,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   
   wss.on('connection', (ws: WebSocket, req) => {
-    console.log('WebSocket connection established');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('WebSocket connection established');
+    }
     
     // Find the user ID from the session
     (req as any).session = undefined;
@@ -1469,7 +1474,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Handle WebSocket closure
       ws.on('close', () => {
-        console.log(`WebSocket connection closed for user ${userId}`);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`WebSocket connection closed for user ${userId}`);
+        }
         clients.get(userId)?.delete(ws);
         if (clients.get(userId)?.size === 0) {
           clients.delete(userId);
