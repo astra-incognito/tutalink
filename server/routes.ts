@@ -39,9 +39,11 @@ declare module "express-session" {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup session middleware
+  const pgStore = PgStore(session);
+  
   app.use(
     session({
-      secret: process.env.SESSION_SECRET,
+      secret: process.env.SESSION_SECRET || 'your-secret-key',
       resave: false,
       saveUninitialized: false,
       cookie: {
@@ -50,7 +52,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         httpOnly: true,
         sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
       },
-      store: new PgStore({ pool }),
+      store: new pgStore({
+        pool,
+        tableName: 'session' // Use a custom table name if needed
+      })
     })
   );
 
