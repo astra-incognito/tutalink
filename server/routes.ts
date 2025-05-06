@@ -406,19 +406,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Tutor course management
   app.post("/api/tutor/courses", async (req: Request, res: Response) => {
-    if (req.session.role !== "tutor") {
-      return res.status(403).json({ message: "Only tutors can add courses" });
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
     }
-    
     try {
       const { courseId, isPaid, hourlyRate } = req.body;
-      
       // Validate course exists
       const course = await storage.getCourse(courseId);
       if (!course) {
         return res.status(404).json({ message: "Course not found" });
       }
-      
       // Create tutor course
       const tutorCourse = await storage.createTutorCourse({
         tutorId: req.session.userId,
@@ -426,12 +423,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isPaid,
         hourlyRate: isPaid ? hourlyRate : null
       });
-      
       const tutorCourseWithCourse = {
         ...tutorCourse,
         course
       };
-      
       res.status(201).json(tutorCourseWithCourse);
     } catch (error) {
       res.status(500).json({ message: "Error adding course to tutor" });
