@@ -135,7 +135,7 @@ const LearnerDashboard = ({ user, refetchUser }: LearnerDashboardProps) => {
     return res.json();
   };
 
-  const { mutateAsync: addCourse, isLoading } = useMutation({
+  const addCourseMutation = useMutation({
     mutationFn: addCourseFn,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tutor/courses"] });

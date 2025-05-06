@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useQuery, queryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import PriceFilter from "@/components/price-filter";
 import { UserWithDetails, Course } from "@shared/schema";
 import useAuth from "@/hooks/use-auth";
 import { useAnalytics } from "@/hooks/use-analytics";
+import { queryClient } from "@/lib/queryClient";
 
 const FindTutors = () => {
   const { isAuthenticated } = useAuth();
