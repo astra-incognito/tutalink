@@ -64,7 +64,12 @@ const EditProfileDialog = ({ isOpen, onClose, user }: EditProfileDialogProps) =>
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (profileUpdate: ProfileUpdate) => {
-      const res = await apiRequest("PATCH", `/api/users/${user.id}`, profileUpdate);
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profileUpdate),
+        credentials: "include",
+      });
       return res.json();
     },
     onSuccess: () => {

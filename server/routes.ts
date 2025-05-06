@@ -23,6 +23,7 @@ import {
   Message,
   SiteSetting
 } from "@shared/schema";
+import PgStore from 'connect-pg-simple';
 
 // For simplicity, we use a memory store for sessions
 const MemoryStoreFactory = MemoryStore(session);
@@ -39,13 +40,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup session middleware
   app.use(
     session({
-      cookie: { maxAge: 86400000 }, // 24 hours
+      secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
-      secret: process.env.SESSION_SECRET || "tuta-link-secret",
-      store: new MemoryStoreFactory({
-        checkPeriod: 86400000, // clear expired entries every 24h
-      }),
+      cookie: {
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        secure: process.env.NODE_ENV === "production", // true if HTTPS
+        httpOnly: true,
+        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      },
+      store: new PgStore({ pool }),
     })
   );
 
@@ -330,62 +334,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Tutor routes
   app.get("/api/tutors", async (req: Request, res: Response) => {
     try {
-      const filters = tutorSearchSchema.parse({
-        courseId: req.query.courseId ? parseInt(req.query.courseId as string) : undefined,
-        department: req.query.department as string || undefined,
-        minGpa: req.query.minGpa ? parseFloat(req.query.minGpa as string) : undefined,
-        isPaid: req.query.isPaid ? req.query.isPaid === 'true' : undefined
-      });
-      
-      // Cache results for 1 minute if no user-specific filters are applied
-      const cacheTime = filters.courseId || filters.minGpa || filters.isPaid ? 10 : 60;
-      res.set('Cache-Control', `private, max-age=${cacheTime}`);
-      
-      // Track timing for performance monitoring
-      const startTime = process.hrtime();
-      const tutors = await storage.getTutors(filters);
-      const elapsed = process.hrtime(startTime);
-      const elapsedMs = (elapsed[0] * 1000 + elapsed[1] / 1000000).toFixed(2);
-      
-      // Log slow queries
-      if (elapsed[0] > 0 || elapsed[1] > 100000000) { // More than 100ms
-        console.warn(`Slow tutor search: ${elapsedMs}ms with filters: ${JSON.stringify(filters)}`);
-      }
-      
-      // Process tutors to respect GPA visibility settings
-      // Note: For tutors, GPA is always shown as it's required to be public
-      // We keep this code here for completeness and consistency
-      const processedTutors = tutors.map(tutor => {
-        return {
-          ...tutor,
-          // Only show GPA if showGPA is true or if role is tutor
-          gpa: (tutor.showGPA === true || tutor.role === 'tutor') ? tutor.gpa : null
-        };
-      });
-      
-      // Log search for analytics
-      if (req.session.userId) {
-        try {
-          await storage.logActivity({
-            userId: req.session.userId,
-            action: 'TUTOR_SEARCH',
-            metadata: { 
-              filters,
-              resultCount: processedTutors.length
-            },
-            ipAddress: req.ip,
-            userAgent: req.headers['user-agent'] || null
-          });
-        } catch (logErr) {
-          console.error('Failed to log tutor search:', logErr);
-        }
-      }
-      
-      res.json(processedTutors);
+      const tutors = await storage.getTutors();
+      res.json(tutors);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid filter parameters", errors: error.errors });
-      }
       res.status(500).json({ message: "Error fetching tutors" });
     }
   });
@@ -449,7 +400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Tutor course management
   app.post("/api/tutor/courses", async (req: Request, res: Response) => {
-    if (!req.session.userId || req.session.role !== "tutor") {
+    if (req.session.role !== "tutor") {
       return res.status(403).json({ message: "Only tutors can add courses" });
     }
     
